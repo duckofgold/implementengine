@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Physics System Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .slider-group {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            min-width: 120px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImplementEngine Physics System Demo</h1>
+    <p>Comprehensive demonstration of 2D physics simulation with collision detection and response</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Physics Controls</h3>
+        <div class="slider-group">
+            <label>Gravity:</label>
+            <input type="range" id="gravitySlider" min="0" max="2000" value="981" step="10">
+            <span class="value-display" id="gravityValue">981</span>
+        </div>
+        <div class="controls">
+            <button id="addBox">Add Box</button>
+            <button id="addCircle">Add Circle</button>
+            <button id="addBouncy">Add Bouncy Ball</button>
+            <button id="clearAll">Clear All</button>
+            <button id="resetGravity">Reset Gravity</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Material Tests</h3>
+        <div class="controls">
+            <button id="addIce">Ice Block</button>
+            <button id="addRubber">Rubber Ball</button>
+            <button id="addMetal">Metal Box</button>
+            <button id="addWood">Wood Block</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Force & Impulse</h3>
+        <div class="controls">
+            <button id="explosion">Explosion</button>
+            <button id="leftWind">Wind Left</button>
+            <button id="rightWind">Wind Right</button>
+            <button id="stopAll">Stop All</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Trigger Zones</h3>
+        <div class="controls">
+            <button id="addTrigger">Add Trigger Zone</button>
+            <button id="addKinematic">Add Platform</button>
+        </div>
+    </div>
+    
+    <div class="info">
+        <div>Objects: <span id="objectCount">0</span></div>
+        <div>Collisions: <span id="collisionCount">0</span></div>
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Physics FPS: <span id="physicsFps">60</span></div>
+    </div>
+
+    <p style="color: #888; margin-top: 20px;">
+        Click on canvas to add objects at mouse position | WASD to move selected object
+    </p>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component, 
+            Transform, 
+            SpriteRenderer,
+            Rigidbody2D,
+            BoxCollider2D,
+            CircleCollider2D,
+            BodyType,
+            ForceMode,
+            PhysicsMaterial2D,
+            Physics2DWorld,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        // Initialize the engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#2d3436',
+            targetFPS: 60
+        });
+
+        // Get physics world reference
+        const physicsWorld = engine.getPhysicsWorld();
+
+        // Create scene
+        const scene = new Scene('Physics Demo');
+
+        // Selected object for controls
+        let selectedObject = null;
+
+        // Create simple colored sprites
+        function createSprite(width, height, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Add border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, width-2, height-2);
+            
+            return canvas;
+        }
+
+        function createCircleSprite(radius, color) {
+            const size = radius * 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius-2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            return canvas;
+        }
+
+        // Create ground
+        function createGround() {
+            const ground = new GameObject('Ground');
+            ground.transform.position = new Vector2(400, 580);
+            
+            const spriteRenderer = ground.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(800, 40, '#34495e'));
+            
+            const rigidbody = ground.addComponent(Rigidbody2D, BodyType.Static);
+            const collider = ground.addComponent(BoxCollider2D, new Vector2(800, 40));
+            
+            scene.addGameObject(ground);
+            return ground;
+        }
+
+        // Create walls
+        function createWalls() {
+            // Left wall
+            const leftWall = new GameObject('LeftWall');
+            leftWall.transform.position = new Vector2(10, 300);
+            
+            let spriteRenderer = leftWall.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(20, 600, '#2c3e50'));
+            
+            let rigidbody = leftWall.addComponent(Rigidbody2D, BodyType.Static);
+            let collider = leftWall.addComponent(BoxCollider2D, new Vector2(20, 600));
+            
+            scene.addGameObject(leftWall);
+
+            // Right wall
+            const rightWall = new GameObject('RightWall');
+            rightWall.transform.position = new Vector2(790, 300);
+            
+            spriteRenderer = rightWall.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(20, 600, '#2c3e50'));
+            
+            rigidbody = rightWall.addComponent(Rigidbody2D, BodyType.Static);
+            collider = rightWall.addComponent(BoxCollider2D, new Vector2(20, 600));
+            
+            scene.addGameObject(rightWall);
+        }
+
+        // Create objects
+        function createBox(position, material = PhysicsMaterial2D.Default, bodyType = BodyType.Dynamic) {
+            const box = new GameObject('Box');
+            box.transform.position = position;
+            
+            const spriteRenderer = box.addComponent(SpriteRenderer);
+            const color = getColorForMaterial(material);
+            spriteRenderer.setSprite(createSprite(40, 40, color));
+            
+            const rigidbody = box.addComponent(Rigidbody2D, bodyType);
+            rigidbody.material = material;
+            
+            const collider = box.addComponent(BoxCollider2D, new Vector2(40, 40));
+            collider.material = material;
+            
+            scene.addGameObject(box);
+            return box;
+        }
+
+        function createCircle(position, material = PhysicsMaterial2D.Default, bodyType = BodyType.Dynamic) {
+            const circle = new GameObject('Circle');
+            circle.transform.position = position;
+            
+            const spriteRenderer = circle.addComponent(SpriteRenderer);
+            const color = getColorForMaterial(material);
+            spriteRenderer.setSprite(createCircleSprite(20, color));
+            
+            const rigidbody = circle.addComponent(Rigidbody2D, bodyType);
+            rigidbody.material = material;
+            
+            const collider = circle.addComponent(CircleCollider2D, 20);
+            collider.material = material;
+            
+            scene.addGameObject(circle);
+            return circle;
+        }
+
+        function createTriggerZone(position) {
+            const trigger = new GameObject('TriggerZone');
+            trigger.transform.position = position;
+            
+            const spriteRenderer = trigger.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(80, 80, '#e74c3c'));
+            spriteRenderer.alpha = 0.5;
+            
+            const collider = trigger.addComponent(BoxCollider2D, new Vector2(80, 80));
+            collider.isTrigger = true;
+            
+            scene.addGameObject(trigger);
+            return trigger;
+        }
+
+        function getColorForMaterial(material) {
+            if (material === PhysicsMaterial2D.Ice) return '#74b9ff';
+            if (material === PhysicsMaterial2D.Rubber) return '#fd79a8';
+            if (material === PhysicsMaterial2D.Metal) return '#636e72';
+            if (material === PhysicsMaterial2D.Wood) return '#8b4513';
+            if (material === PhysicsMaterial2D.Bouncy) return '#00b894';
+            return '#6c5ce7';
+        }
+
+        // Mouse interaction
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const position = new Vector2(x, y);
+            
+            if (event.shiftKey) {
+                createCircle(position);
+            } else {
+                createBox(position);
+            }
+        });
+
+        // Keyboard controls for selected object
+        class ObjectController extends Component {
+            force = 500;
+            
+            update() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                if (!rigidbody) return;
+                
+                if (Input.getKey('w')) {
+                    rigidbody.addForce(new Vector2(0, -this.force));
+                }
+                if (Input.getKey('s')) {
+                    rigidbody.addForce(new Vector2(0, this.force));
+                }
+                if (Input.getKey('a')) {
+                    rigidbody.addForce(new Vector2(-this.force, 0));
+                }
+                if (Input.getKey('d')) {
+                    rigidbody.addForce(new Vector2(this.force, 0));
+                }
+            }
+        }
+
+        // Event listeners for collision/trigger events
+        scene.on('collisionEnter2D', (event) => {
+            console.log('Collision entered:', event);
+        });
+
+        scene.on('triggerEnter2D', (event) => {
+            console.log('Trigger entered:', event);
+            // Change color when something enters trigger
+            const spriteRenderer = event.otherGameObject.getComponent(SpriteRenderer);
+            if (spriteRenderer) {
+                spriteRenderer.color = '#e17055';
+            }
+        });
+
+        scene.on('triggerExit2D', (event) => {
+            console.log('Trigger exited:', event);
+            // Reset color when leaving trigger
+            const spriteRenderer = event.otherGameObject.getComponent(SpriteRenderer);
+            if (spriteRenderer) {
+                spriteRenderer.color = '#FFFFFF';
+            }
+        });
+
+        // UI Controls
+        const gravitySlider = document.getElementById('gravitySlider');
+        const gravityValue = document.getElementById('gravityValue');
+
+        gravitySlider.addEventListener('input', () => {
+            const gravity = parseFloat(gravitySlider.value);
+            physicsWorld.setGravity(new Vector2(0, gravity));
+            gravityValue.textContent = gravity;
+        });
+
+        document.getElementById('addBox').onclick = () => {
+            createBox(new Vector2(400, 100));
+        };
+
+        document.getElementById('addCircle').onclick = () => {
+            createCircle(new Vector2(400, 100));
+        };
+
+        document.getElementById('addBouncy').onclick = () => {
+            createCircle(new Vector2(400, 100), PhysicsMaterial2D.Bouncy);
+        };
+
+        document.getElementById('clearAll').onclick = () => {
+            scene.getAllGameObjects().forEach(obj => {
+                if (obj.name !== 'Ground' && obj.name !== 'LeftWall' && obj.name !== 'RightWall') {
+                    obj.destroy();
+                }
+            });
+        };
+
+        document.getElementById('resetGravity').onclick = () => {
+            gravitySlider.value = 981;
+            physicsWorld.setGravity(new Vector2(0, 981));
+            gravityValue.textContent = '981';
+        };
+
+        // Material tests
+        document.getElementById('addIce').onclick = () => {
+            createBox(new Vector2(200, 100), PhysicsMaterial2D.Ice);
+        };
+
+        document.getElementById('addRubber').onclick = () => {
+            createCircle(new Vector2(300, 100), PhysicsMaterial2D.Rubber);
+        };
+
+        document.getElementById('addMetal').onclick = () => {
+            createBox(new Vector2(500, 100), PhysicsMaterial2D.Metal);
+        };
+
+        document.getElementById('addWood').onclick = () => {
+            createBox(new Vector2(600, 100), PhysicsMaterial2D.Wood);
+        };
+
+        // Force tests
+        document.getElementById('explosion').onclick = () => {
+            const center = new Vector2(400, 300);
+            const force = 50000;
+            
+            scene.getAllGameObjects().forEach(obj => {
+                const rigidbody = obj.getComponent(Rigidbody2D);
+                if (rigidbody && rigidbody.bodyType === BodyType.Dynamic) {
+                    const direction = obj.transform.position.subtract(center).normalized();
+                    const distance = obj.transform.position.distance(center);
+                    const adjustedForce = force / (distance + 100); // Falloff with distance
+                    rigidbody.addForce(direction.multiply(adjustedForce), ForceMode.Impulse);
+                }
+            });
+        };
+
+        document.getElementById('leftWind').onclick = () => {
+            scene.getAllGameObjects().forEach(obj => {
+                const rigidbody = obj.getComponent(Rigidbody2D);
+                if (rigidbody && rigidbody.bodyType === BodyType.Dynamic) {
+                    rigidbody.addForce(new Vector2(-200, 0));
+                }
+            });
+        };
+
+        document.getElementById('rightWind').onclick = () => {
+            scene.getAllGameObjects().forEach(obj => {
+                const rigidbody = obj.getComponent(Rigidbody2D);
+                if (rigidbody && rigidbody.bodyType === BodyType.Dynamic) {
+                    rigidbody.addForce(new Vector2(200, 0));
+                }
+            });
+        };
+
+        document.getElementById('stopAll').onclick = () => {
+            scene.getAllGameObjects().forEach(obj => {
+                const rigidbody = obj.getComponent(Rigidbody2D);
+                if (rigidbody && rigidbody.bodyType === BodyType.Dynamic) {
+                    rigidbody.setVelocity(Vector2.zero);
+                    rigidbody.setAngularVelocity(0);
+                }
+            });
+        };
+
+        // Trigger and kinematic
+        document.getElementById('addTrigger').onclick = () => {
+            createTriggerZone(new Vector2(400, 200));
+        };
+
+        document.getElementById('addKinematic').onclick = () => {
+            const platform = createBox(new Vector2(400, 200), PhysicsMaterial2D.Default, BodyType.Kinematic);
+            
+            // Add platform movement behavior
+            class PlatformController extends Component {
+                speed = 100;
+                direction = 1;
+                startX = 400;
+                range = 200;
+                
+                update() {
+                    const rigidbody = this.getComponent(Rigidbody2D);
+                    if (!rigidbody) return;
+                    
+                    const currentX = this.transform.position.x;
+                    
+                    if (currentX >= this.startX + this.range) {
+                        this.direction = -1;
+                    } else if (currentX <= this.startX - this.range) {
+                        this.direction = 1;
+                    }
+                    
+                    rigidbody.setVelocity(new Vector2(this.speed * this.direction, 0));
+                }
+            }
+            
+            platform.addComponent(PlatformController);
+        };
+
+        // Initialize scene
+        createGround();
+        createWalls();
+
+        // Add some initial objects
+        createBox(new Vector2(200, 300));
+        createCircle(new Vector2(600, 300));
+        createBox(new Vector2(400, 200), PhysicsMaterial2D.Bouncy);
+
+        // Start the engine
+        engine.setScene(scene);
+        engine.start();
+
+        // Update UI
+        function updateUI() {
+            const allObjects = scene.getAllGameObjects();
+            const dynamicObjects = allObjects.filter(obj => {
+                const rb = obj.getComponent(Rigidbody2D);
+                return rb && rb.bodyType === BodyType.Dynamic;
+            });
+            
+            document.getElementById('objectCount').textContent = dynamicObjects.length;
+            document.getElementById('collisionCount').textContent = physicsWorld.getActiveCollisionCount();
+            document.getElementById('fps').textContent = engine.getCurrentFPS();
+        }
+
+        setInterval(updateUI, 100);
+
+        console.log('ImplementEngine Physics Demo initialized!');
+        console.log('Available controls:');
+        console.log('- Click to add boxes (Shift+Click for circles)');
+        console.log('- WASD to apply forces to objects');
+        console.log('- Various material and force tests available');
+    </script>
+</body>
+</html>

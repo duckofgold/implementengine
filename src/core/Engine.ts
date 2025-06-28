@@ -5,6 +5,7 @@ import { Renderer } from '../rendering/Renderer';
 import { EventEmitter } from '../utils/EventEmitter';
 import { SpriteRenderer } from '../components/SpriteRenderer';
 import { TweenManager } from '../animation/Tween';
+import { Physics2DWorld } from '../physics/Physics2DWorld';
 
 export interface EngineConfig {
     canvas?: HTMLCanvasElement;
@@ -20,6 +21,7 @@ export class Engine extends EventEmitter {
     
     private canvas: HTMLCanvasElement;
     private renderer: Renderer;
+    private physicsWorld: Physics2DWorld;
     private currentScene: Scene | null = null;
     private isRunning: boolean = false;
     private isPaused: boolean = false;
@@ -33,6 +35,7 @@ export class Engine extends EventEmitter {
         
         this.canvas = config.canvas || this.createCanvas(config.width || 800, config.height || 600);
         this.renderer = new Renderer(this.canvas);
+        this.physicsWorld = Physics2DWorld.createInstance();
         this.targetFPS = config.targetFPS || 60;
         this.frameInterval = 1000 / this.targetFPS;
         
@@ -69,6 +72,10 @@ export class Engine extends EventEmitter {
 
     public getRenderer(): Renderer {
         return this.renderer;
+    }
+
+    public getPhysicsWorld(): Physics2DWorld {
+        return this.physicsWorld;
     }
 
     public getCurrentScene(): Scene | null {
@@ -223,6 +230,7 @@ export class Engine extends EventEmitter {
         Time.update();
         Input.update();
         TweenManager.getInstance().update(Time.deltaTime);
+        this.physicsWorld.update(Time.deltaTime);
         
         if (this.currentScene) {
             this.currentScene.update();

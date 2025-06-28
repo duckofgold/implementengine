@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Audio System Demo (Fixed)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .slider-group {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            min-width: 120px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #34495e;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .audio-ready {
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .audio-not-ready {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImplementEngine Audio System Demo (Fixed)</h1>
+    <p>Click "Initialize Audio" first, then test the sounds!</p>
+    
+    <div id="audioStatus" class="audio-not-ready">
+        Audio System: Not Initialized - Click "Initialize Audio" button
+    </div>
+    
+    <div class="section">
+        <h3>Audio System</h3>
+        <div class="controls">
+            <button id="initAudio">Initialize Audio</button>
+            <button id="resumeAudio" disabled>Resume Audio Context</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Volume Controls</h3>
+        <div class="slider-group">
+            <label>Master Volume:</label>
+            <input type="range" id="masterVolume" min="0" max="100" value="50" step="1" disabled>
+            <span class="value-display" id="masterVolumeValue">50%</span>
+        </div>
+        <div class="slider-group">
+            <label>SFX Volume:</label>
+            <input type="range" id="sfxVolume" min="0" max="100" value="75" step="1" disabled>
+            <span class="value-display" id="sfxVolumeValue">75%</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Basic Audio Tests</h3>
+        <div class="controls">
+            <button id="playBeep" disabled>Play Beep (440Hz)</button>
+            <button id="playLowBeep" disabled>Play Low Beep (220Hz)</button>
+            <button id="playHighBeep" disabled>Play High Beep (880Hz)</button>
+            <button id="playNoise" disabled>Play White Noise</button>
+            <button id="stopAll" disabled>Stop All</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Audio Effects</h3>
+        <div class="controls">
+            <button id="testFadeIn" disabled>Fade In Test</button>
+            <button id="testFadeOut" disabled>Fade Out Test</button>
+            <button id="testPitchUp" disabled>Pitch Up</button>
+            <button id="testPitchDown" disabled>Pitch Down</button>
+        </div>
+    </div>
+    
+    <div class="status" id="statusLog">
+        Status: Ready to initialize audio system...
+    </div>
+
+    <script type="module">
+        // Simple audio system without complex imports
+        let audioContext = null;
+        let masterGain = null;
+        let sfxGain = null;
+        let activeSources = new Set();
+        
+        // Status logging
+        function log(message) {
+            const statusLog = document.getElementById('statusLog');
+            const timestamp = new Date().toLocaleTimeString();
+            statusLog.textContent = `[${timestamp}] ${message}`;
+            console.log(message);
+        }
+
+        // Create synthetic audio buffer
+        function createTone(frequency, duration, volume = 0.3) {
+            if (!audioContext) return null;
+            
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const time = i / sampleRate;
+                const envelope = Math.exp(-time * 2); // Exponential decay
+                data[i] = Math.sin(2 * Math.PI * frequency * time) * volume * envelope;
+            }
+            
+            return buffer;
+        }
+
+        // Create white noise
+        function createNoise(duration, volume = 0.1) {
+            if (!audioContext) return null;
+            
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const time = i / sampleRate;
+                const envelope = Math.exp(-time * 3); // Quick decay
+                data[i] = (Math.random() * 2 - 1) * volume * envelope;
+            }
+            
+            return buffer;
+        }
+
+        // Play audio buffer
+        function playBuffer(buffer, pitch = 1.0, volume = 1.0) {
+            if (!audioContext || !buffer || !sfxGain) return null;
+            
+            try {
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+                
+                source.buffer = buffer;
+                source.playbackRate.value = pitch;
+                gainNode.gain.value = volume;
+                
+                source.connect(gainNode);
+                gainNode.connect(sfxGain);
+                
+                source.start();
+                activeSources.add(source);
+                
+                source.onended = () => {
+                    activeSources.delete(source);
+                };
+                
+                return source;
+            } catch (error) {
+                log('Error playing sound: ' + error.message);
+                return null;
+            }
+        }
+
+        // Stop all sources
+        function stopAllSources() {
+            activeSources.forEach(source => {
+                try {
+                    source.stop();
+                } catch (e) {
+                    // Source might already be stopped
+                }
+            });
+            activeSources.clear();
+        }
+
+        // Initialize audio system
+        async function initializeAudio() {
+            try {
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create gain nodes
+                masterGain = audioContext.createGain();
+                sfxGain = audioContext.createGain();
+                
+                // Connect audio graph
+                sfxGain.connect(masterGain);
+                masterGain.connect(audioContext.destination);
+                
+                // Set initial volumes
+                masterGain.gain.value = 0.5;
+                sfxGain.gain.value = 0.75;
+                
+                // Resume context if suspended
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                log('Audio system initialized successfully');
+                updateAudioStatus();
+                enableControls();
+                
+            } catch (error) {
+                log('Failed to initialize audio: ' + error.message);
+            }
+        }
+
+        // Update audio status display
+        function updateAudioStatus() {
+            const statusDiv = document.getElementById('audioStatus');
+            if (audioContext) {
+                statusDiv.className = 'audio-ready';
+                statusDiv.textContent = `Audio System: Ready (${audioContext.state}) - Sample Rate: ${audioContext.sampleRate}Hz`;
+            } else {
+                statusDiv.className = 'audio-not-ready';
+                statusDiv.textContent = 'Audio System: Not Initialized';
+            }
+        }
+
+        // Enable controls after audio init
+        function enableControls() {
+            const controls = [
+                'masterVolume', 'sfxVolume', 'playBeep', 'playLowBeep', 
+                'playHighBeep', 'playNoise', 'stopAll', 'testFadeIn', 
+                'testFadeOut', 'testPitchUp', 'testPitchDown', 'resumeAudio'
+            ];
+            
+            controls.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.disabled = false;
+            });
+        }
+
+        // Setup UI controls
+        function setupControls() {
+            // Initialize audio
+            document.getElementById('initAudio').onclick = async () => {
+                await initializeAudio();
+            };
+
+            // Resume audio context
+            document.getElementById('resumeAudio').onclick = async () => {
+                if (audioContext && audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                    log('Audio context resumed');
+                    updateAudioStatus();
+                }
+            };
+
+            // Volume controls
+            document.getElementById('masterVolume').oninput = (e) => {
+                if (masterGain) {
+                    const value = e.target.value / 100;
+                    masterGain.gain.value = value;
+                    document.getElementById('masterVolumeValue').textContent = e.target.value + '%';
+                }
+            };
+
+            document.getElementById('sfxVolume').oninput = (e) => {
+                if (sfxGain) {
+                    const value = e.target.value / 100;
+                    sfxGain.gain.value = value;
+                    document.getElementById('sfxVolumeValue').textContent = e.target.value + '%';
+                }
+            };
+
+            // Sound tests
+            document.getElementById('playBeep').onclick = () => {
+                const buffer = createTone(440, 0.5);
+                playBuffer(buffer);
+                log('Playing 440Hz beep');
+            };
+
+            document.getElementById('playLowBeep').onclick = () => {
+                const buffer = createTone(220, 0.5);
+                playBuffer(buffer);
+                log('Playing 220Hz low beep');
+            };
+
+            document.getElementById('playHighBeep').onclick = () => {
+                const buffer = createTone(880, 0.5);
+                playBuffer(buffer);
+                log('Playing 880Hz high beep');
+            };
+
+            document.getElementById('playNoise').onclick = () => {
+                const buffer = createNoise(0.3);
+                playBuffer(buffer);
+                log('Playing white noise');
+            };
+
+            document.getElementById('stopAll').onclick = () => {
+                stopAllSources();
+                log('Stopped all audio');
+            };
+
+            // Audio effects
+            document.getElementById('testFadeIn').onclick = () => {
+                const buffer = createTone(440, 2.0);
+                const source = playBuffer(buffer, 1.0, 0);
+                if (source && sfxGain) {
+                    const gainNode = audioContext.createGain();
+                    gainNode.gain.value = 0;
+                    source.disconnect();
+                    source.connect(gainNode);
+                    gainNode.connect(sfxGain);
+                    
+                    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 2.0);
+                    log('Testing fade in effect');
+                }
+            };
+
+            document.getElementById('testFadeOut').onclick = () => {
+                const buffer = createTone(440, 3.0);
+                const source = playBuffer(buffer, 1.0, 0.3);
+                if (source && sfxGain) {
+                    setTimeout(() => {
+                        const gainNode = audioContext.createGain();
+                        gainNode.gain.value = 0.3;
+                        source.disconnect();
+                        source.connect(gainNode);
+                        gainNode.connect(sfxGain);
+                        
+                        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.5);
+                    }, 500);
+                    log('Testing fade out effect');
+                }
+            };
+
+            document.getElementById('testPitchUp').onclick = () => {
+                const buffer = createTone(440, 0.5);
+                playBuffer(buffer, 1.5); // 1.5x speed = higher pitch
+                log('Playing pitch shifted up');
+            };
+
+            document.getElementById('testPitchDown').onclick = () => {
+                const buffer = createTone(440, 0.5);
+                playBuffer(buffer, 0.5); // 0.5x speed = lower pitch
+                log('Playing pitch shifted down');
+            };
+        }
+
+        // Monitor audio context state
+        function monitorAudioContext() {
+            setInterval(() => {
+                updateAudioStatus();
+                
+                // Show active sources count
+                const activeCount = activeSources.size;
+                if (activeCount > 0) {
+                    log(`Active audio sources: ${activeCount}`);
+                }
+            }, 1000);
+        }
+
+        // Initialize demo
+        setupControls();
+        monitorAudioContext();
+        updateAudioStatus();
+        
+        log('Audio demo ready - Click "Initialize Audio" to begin');
+
+        console.log('Simple Audio Demo loaded successfully!');
+        console.log('This demo uses direct Web Audio API calls to ensure compatibility');
+    </script>
+</body>
+</html>

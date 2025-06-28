@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Spatial Audio Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            cursor: crosshair;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .slider-group {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            min-width: 140px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .value-display {
+            min-width: 60px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #34495e;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .audio-ready {
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .audio-not-ready {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .instructions {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .listener { background: #e74c3c; }
+        .source { background: #f39c12; }
+        .source-playing { background: #27ae60; }
+    </style>
+</head>
+<body>
+    <h1>🔊 ImplementEngine Spatial Audio Demo</h1>
+    <p>Experience 3D positional audio with real-time spatial positioning!</p>
+    
+    <div id="audioStatus" class="audio-not-ready">
+        Audio System: Not Initialized - Click "Initialize Spatial Audio" button
+    </div>
+    
+    <canvas id="spatialCanvas" width="800" height="600"></canvas>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color listener"></div>
+            <span>Listener (You) - WASD to move</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color source"></div>
+            <span>Sound Source - Click to toggle</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color source-playing"></div>
+            <span>Playing Source</span>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h3>Spatial Audio System</h3>
+        <div class="controls">
+            <button id="initAudio">Initialize Spatial Audio</button>
+            <button id="addSource" disabled>Add Sound Source</button>
+            <button id="clearSources" disabled>Clear All Sources</button>
+            <button id="autoMove" disabled>Auto-Move Listener</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Spatial Audio Settings</h3>
+        <div class="slider-group">
+            <label>Master Volume:</label>
+            <input type="range" id="masterVolume" min="0" max="100" value="50" step="1" disabled>
+            <span class="value-display" id="masterVolumeValue">50%</span>
+        </div>
+        <div class="slider-group">
+            <label>Source Volume:</label>
+            <input type="range" id="sourceVolume" min="0" max="100" value="75" step="1" disabled>
+            <span class="value-display" id="sourceVolumeValue">75%</span>
+        </div>
+        <div class="slider-group">
+            <label>Max Distance:</label>
+            <input type="range" id="maxDistance" min="50" max="500" value="200" step="10" disabled>
+            <span class="value-display" id="maxDistanceValue">200px</span>
+        </div>
+        <div class="slider-group">
+            <label>Rolloff Factor:</label>
+            <input type="range" id="rolloffFactor" min="0.1" max="3" value="1" step="0.1" disabled>
+            <span class="value-display" id="rolloffFactorValue">1.0</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Sound Types</h3>
+        <div class="controls">
+            <button id="playBeepSource" disabled>Add Beep Source</button>
+            <button id="playNoiseSource" disabled>Add Noise Source</button>
+            <button id="playToneSource" disabled>Add Tone Source</button>
+            <button id="stopAllSources" disabled>Stop All</button>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <strong>Instructions:</strong><br>
+        1. Click "Initialize Spatial Audio" to start<br>
+        2. Click on the canvas to add sound sources<br>
+        3. Use WASD keys to move the red listener circle<br>
+        4. Notice how sound volume and stereo panning change with distance and position<br>
+        5. Click on orange circles to toggle sound playback<br>
+        6. Adjust spatial settings with the sliders above
+    </div>
+    
+    <div class="status" id="statusLog">
+        Status: Ready to initialize spatial audio system...
+    </div>
+
+    <script>
+        // Spatial audio system variables
+        let audioContext = null;
+        let masterGain = null;
+        let listener = { x: 400, y: 300, angle: 0 };
+        let soundSources = [];
+        let isAutoMoving = false;
+        let animationFrame = null;
+        let keys = {};
+        
+        // Canvas and rendering
+        const canvas = document.getElementById('spatialCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Audio buffers
+        let beepBuffer = null;
+        let noiseBuffer = null;
+        let toneBuffer = null;
+        
+        // Settings
+        let settings = {
+            masterVolume: 0.5,
+            sourceVolume: 0.75,
+            maxDistance: 200,
+            rolloffFactor: 1.0
+        };
+
+        // Status logging
+        function log(message) {
+            const statusLog = document.getElementById('statusLog');
+            const timestamp = new Date().toLocaleTimeString();
+            statusLog.textContent = `[${timestamp}] ${message}`;
+            console.log(message);
+        }
+
+        // Create audio buffers
+        function createBeepBuffer(frequency = 440, duration = 0.5) {
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const time = i / sampleRate;
+                const envelope = Math.exp(-time * 2);
+                data[i] = Math.sin(2 * Math.PI * frequency * time) * 0.3 * envelope;
+            }
+            
+            return buffer;
+        }
+
+        function createNoiseBuffer(duration = 1.0) {
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const time = i / sampleRate;
+                const envelope = Math.exp(-time * 1.5);
+                data[i] = (Math.random() * 2 - 1) * 0.2 * envelope;
+            }
+            
+            return buffer;
+        }
+
+        function createToneBuffer(frequency = 220, duration = 2.0) {
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const time = i / sampleRate;
+                const envelope = 0.5 + 0.5 * Math.sin(time * 2); // Oscillating envelope
+                data[i] = Math.sin(2 * Math.PI * frequency * time) * 0.25 * envelope;
+            }
+            
+            return buffer;
+        }
+
+        // Spatial audio calculation
+        function calculateSpatialAudio(sourceX, sourceY, listenerX, listenerY) {
+            const dx = sourceX - listenerX;
+            const dy = sourceY - listenerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Volume based on distance
+            const normalizedDistance = Math.min(distance / settings.maxDistance, 1);
+            const volume = Math.pow(1 - normalizedDistance, settings.rolloffFactor);
+            
+            // Panning based on horizontal position
+            const maxPanDistance = 200;
+            const panValue = Math.max(-1, Math.min(1, dx / maxPanDistance));
+            
+            return { volume, pan: panValue, distance };
+        }
+
+        // Sound source class
+        class SpatialSoundSource {
+            constructor(x, y, buffer, type) {
+                this.x = x;
+                this.y = y;
+                this.buffer = buffer;
+                this.type = type;
+                this.isPlaying = false;
+                this.source = null;
+                this.gainNode = null;
+                this.pannerNode = null;
+                this.volume = 1.0;
+            }
+
+            play() {
+                if (this.isPlaying) return;
+                
+                try {
+                    // Create audio nodes
+                    this.source = audioContext.createBufferSource();
+                    this.gainNode = audioContext.createGain();
+                    this.pannerNode = audioContext.createStereoPanner();
+                    
+                    // Setup audio buffer
+                    this.source.buffer = this.buffer;
+                    this.source.loop = true;
+                    
+                    // Connect audio graph
+                    this.source.connect(this.gainNode);
+                    this.gainNode.connect(this.pannerNode);
+                    this.pannerNode.connect(masterGain);
+                    
+                    // Start playing
+                    this.source.start();
+                    this.isPlaying = true;
+                    
+                    // Handle ended event
+                    this.source.onended = () => {
+                        this.isPlaying = false;
+                        this.source = null;
+                        this.gainNode = null;
+                        this.pannerNode = null;
+                    };
+                    
+                    // Update spatial parameters
+                    this.updateSpatialAudio();
+                    
+                } catch (error) {
+                    log('Error playing source: ' + error.message);
+                }
+            }
+
+            stop() {
+                if (!this.isPlaying || !this.source) return;
+                
+                try {
+                    this.source.stop();
+                } catch (e) {
+                    // Source might already be stopped
+                }
+                
+                this.isPlaying = false;
+                this.source = null;
+                this.gainNode = null;
+                this.pannerNode = null;
+            }
+
+            updateSpatialAudio() {
+                if (!this.isPlaying || !this.gainNode || !this.pannerNode) return;
+                
+                const spatial = calculateSpatialAudio(this.x, this.y, listener.x, listener.y);
+                
+                // Update volume
+                const finalVolume = spatial.volume * settings.sourceVolume * this.volume;
+                this.gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
+                
+                // Update panning
+                this.pannerNode.pan.setValueAtTime(spatial.pan, audioContext.currentTime);
+            }
+
+            toggle() {
+                if (this.isPlaying) {
+                    this.stop();
+                } else {
+                    this.play();
+                }
+            }
+        }
+
+        // Add sound source
+        function addSoundSource(x, y, buffer, type) {
+            const source = new SpatialSoundSource(x, y, buffer, type);
+            soundSources.push(source);
+            log(`Added ${type} source at (${Math.round(x)}, ${Math.round(y)})`);
+            return source;
+        }
+
+        // Update all spatial audio
+        function updateAllSpatialAudio() {
+            soundSources.forEach(source => {
+                source.updateSpatialAudio();
+            });
+        }
+
+        // Render the spatial scene
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw distance circles
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for (let radius = 50; radius <= 300; radius += 50) {
+                ctx.beginPath();
+                ctx.arc(listener.x, listener.y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Draw max distance circle
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(listener.x, listener.y, settings.maxDistance, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw sound sources
+            soundSources.forEach(source => {
+                const spatial = calculateSpatialAudio(source.x, source.y, listener.x, listener.y);
+                
+                ctx.fillStyle = source.isPlaying ? '#27ae60' : '#f39c12';
+                ctx.beginPath();
+                ctx.arc(source.x, source.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw volume indicator
+                if (source.isPlaying) {
+                    const volumeRadius = 15 + (spatial.volume * 20);
+                    ctx.strokeStyle = '#27ae60';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(source.x, source.y, volumeRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // Draw type label
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(source.type.toUpperCase(), source.x, source.y + 30);
+            });
+            
+            // Draw listener
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.arc(listener.x, listener.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw listener direction
+            const dirX = listener.x + Math.cos(listener.angle) * 30;
+            const dirY = listener.y + Math.sin(listener.angle) * 30;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(listener.x, listener.y);
+            ctx.lineTo(dirX, dirY);
+            ctx.stroke();
+            
+            // Draw listener label
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('LISTENER', listener.x, listener.y - 35);
+        }
+
+        // Handle input
+        function handleInput() {
+            const speed = 3;
+            
+            if (keys['w'] || keys['W']) listener.y -= speed;
+            if (keys['s'] || keys['S']) listener.y += speed;
+            if (keys['a'] || keys['A']) listener.x -= speed;
+            if (keys['d'] || keys['D']) listener.x += speed;
+            
+            // Keep listener in bounds
+            listener.x = Math.max(20, Math.min(canvas.width - 20, listener.x));
+            listener.y = Math.max(20, Math.min(canvas.height - 20, listener.y));
+        }
+
+        // Auto movement
+        function autoMoveListener() {
+            if (!isAutoMoving) return;
+            
+            const time = Date.now() * 0.001;
+            listener.x = 400 + Math.cos(time * 0.5) * 150;
+            listener.y = 300 + Math.sin(time * 0.7) * 100;
+            listener.angle = time * 0.3;
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isAutoMoving) {
+                handleInput();
+            } else {
+                autoMoveListener();
+            }
+            
+            updateAllSpatialAudio();
+            render();
+            
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        // Initialize spatial audio
+        async function initializeSpatialAudio() {
+            try {
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create master gain
+                masterGain = audioContext.createGain();
+                masterGain.connect(audioContext.destination);
+                masterGain.gain.value = settings.masterVolume;
+                
+                // Resume context if suspended
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                // Create audio buffers
+                beepBuffer = createBeepBuffer(440, 0.5);
+                noiseBuffer = createNoiseBuffer(1.0);
+                toneBuffer = createToneBuffer(220, 2.0);
+                
+                log('Spatial audio system initialized successfully');
+                updateAudioStatus();
+                enableControls();
+                
+                // Start animation loop
+                animate();
+                
+                // Add some initial sources
+                addSoundSource(200, 200, beepBuffer, 'beep');
+                addSoundSource(600, 400, noiseBuffer, 'noise');
+                
+            } catch (error) {
+                log('Failed to initialize spatial audio: ' + error.message);
+            }
+        }
+
+        // Update audio status
+        function updateAudioStatus() {
+            const statusDiv = document.getElementById('audioStatus');
+            if (audioContext) {
+                statusDiv.className = 'audio-ready';
+                statusDiv.textContent = `Spatial Audio: Ready (${audioContext.state}) - Move with WASD, Click sources to toggle`;
+            } else {
+                statusDiv.className = 'audio-not-ready';
+                statusDiv.textContent = 'Spatial Audio: Not Initialized';
+            }
+        }
+
+        // Enable controls
+        function enableControls() {
+            const controls = [
+                'masterVolume', 'sourceVolume', 'maxDistance', 'rolloffFactor',
+                'addSource', 'clearSources', 'autoMove', 'playBeepSource',
+                'playNoiseSource', 'playToneSource', 'stopAllSources'
+            ];
+            
+            controls.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.disabled = false;
+            });
+        }
+
+        // Setup event listeners
+        function setupControls() {
+            // Initialize audio
+            document.getElementById('initAudio').onclick = initializeSpatialAudio;
+
+            // Volume controls
+            document.getElementById('masterVolume').oninput = (e) => {
+                settings.masterVolume = e.target.value / 100;
+                if (masterGain) masterGain.gain.value = settings.masterVolume;
+                document.getElementById('masterVolumeValue').textContent = e.target.value + '%';
+            };
+
+            document.getElementById('sourceVolume').oninput = (e) => {
+                settings.sourceVolume = e.target.value / 100;
+                document.getElementById('sourceVolumeValue').textContent = e.target.value + '%';
+                updateAllSpatialAudio();
+            };
+
+            document.getElementById('maxDistance').oninput = (e) => {
+                settings.maxDistance = parseInt(e.target.value);
+                document.getElementById('maxDistanceValue').textContent = e.target.value + 'px';
+                updateAllSpatialAudio();
+            };
+
+            document.getElementById('rolloffFactor').oninput = (e) => {
+                settings.rolloffFactor = parseFloat(e.target.value);
+                document.getElementById('rolloffFactorValue').textContent = e.target.value;
+                updateAllSpatialAudio();
+            };
+
+            // Source controls
+            document.getElementById('addSource').onclick = () => {
+                const x = Math.random() * (canvas.width - 100) + 50;
+                const y = Math.random() * (canvas.height - 100) + 50;
+                addSoundSource(x, y, beepBuffer, 'beep');
+            };
+
+            document.getElementById('clearSources').onclick = () => {
+                soundSources.forEach(source => source.stop());
+                soundSources = [];
+                log('Cleared all sound sources');
+            };
+
+            document.getElementById('autoMove').onclick = () => {
+                isAutoMoving = !isAutoMoving;
+                document.getElementById('autoMove').textContent = 
+                    isAutoMoving ? 'Stop Auto-Move' : 'Auto-Move Listener';
+                log(isAutoMoving ? 'Started auto-movement' : 'Stopped auto-movement');
+            };
+
+            // Sound type controls
+            document.getElementById('playBeepSource').onclick = () => {
+                const source = addSoundSource(400, 150, beepBuffer, 'beep');
+                source.play();
+            };
+
+            document.getElementById('playNoiseSource').onclick = () => {
+                const source = addSoundSource(300, 450, noiseBuffer, 'noise');
+                source.play();
+            };
+
+            document.getElementById('playToneSource').onclick = () => {
+                const source = addSoundSource(500, 300, toneBuffer, 'tone');
+                source.play();
+            };
+
+            document.getElementById('stopAllSources').onclick = () => {
+                soundSources.forEach(source => source.stop());
+                log('Stopped all sound sources');
+            };
+
+            // Canvas click
+            canvas.onclick = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                // Check if clicked on existing source
+                let clicked = false;
+                soundSources.forEach(source => {
+                    const dx = x - source.x;
+                    const dy = y - source.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 20) {
+                        source.toggle();
+                        clicked = true;
+                        log(`Toggled ${source.type} source`);
+                    }
+                });
+                
+                // Add new source if not clicked on existing
+                if (!clicked && beepBuffer) {
+                    addSoundSource(x, y, beepBuffer, 'beep');
+                }
+            };
+
+            // Keyboard input
+            document.addEventListener('keydown', (e) => {
+                keys[e.key] = true;
+            });
+
+            document.addEventListener('keyup', (e) => {
+                keys[e.key] = false;
+            });
+        }
+
+        // Initialize demo
+        setupControls();
+        updateAudioStatus();
+        render(); // Initial render
+        
+        log('Spatial audio demo ready - Click "Initialize Spatial Audio" to begin');
+
+        console.log('Spatial Audio Demo loaded successfully!');
+        console.log('This demo showcases real-time 3D positional audio with distance and stereo panning');
+    </script>
+</body>
+</html>

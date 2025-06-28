@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Audio System Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .slider-group {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            min-width: 120px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .audio-object {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .listener {
+            background: #e74c3c;
+            border: 2px solid #fff;
+        }
+
+        .sound-source {
+            background: #f39c12;
+            border: 2px solid #fff;
+        }
+
+        .sound-source.playing {
+            background: #27ae60;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #34495e;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImplementEngine Audio System Demo</h1>
+    <p>Interactive demonstration of 2D/3D audio with spatial positioning and volume controls</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Master Volume Controls</h3>
+        <div class="slider-group">
+            <label>Master Volume:</label>
+            <input type="range" id="masterVolume" min="0" max="100" value="100" step="1">
+            <span class="value-display" id="masterVolumeValue">100%</span>
+        </div>
+        <div class="slider-group">
+            <label>Music Volume:</label>
+            <input type="range" id="musicVolume" min="0" max="100" value="80" step="1">
+            <span class="value-display" id="musicVolumeValue">80%</span>
+        </div>
+        <div class="slider-group">
+            <label>SFX Volume:</label>
+            <input type="range" id="sfxVolume" min="0" max="100" value="100" step="1">
+            <span class="value-display" id="sfxVolumeValue">100%</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Basic Audio Controls</h3>
+        <div class="controls">
+            <button id="playBeep">Play Beep</button>
+            <button id="playChord">Play Chord</button>
+            <button id="playNoise">Play Noise</button>
+            <button id="startMusic">Start Music</button>
+            <button id="stopMusic">Stop Music</button>
+            <button id="stopAll">Stop All</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Spatial Audio Demo</h3>
+        <div class="slider-group">
+            <label>Spatial Blend:</label>
+            <input type="range" id="spatialBlend" min="0" max="100" value="100" step="1">
+            <span class="value-display" id="spatialBlendValue">100%</span>
+        </div>
+        <div class="controls">
+            <button id="addSpatialSource">Add Sound Source</button>
+            <button id="clearSources">Clear Sources</button>
+            <button id="moveListener">Toggle Listener Movement</button>
+        </div>
+        <p style="color: #888; font-size: 12px;">
+            Red circle = Listener (WASD to move) | Orange/Green circles = Sound sources (click to toggle)
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Audio Effects</h3>
+        <div class="controls">
+            <button id="testFadeIn">Fade In</button>
+            <button id="testFadeOut">Fade Out</button>
+            <button id="testCrossFade">Cross Fade</button>
+            <button id="testPitchShift">Pitch Shift</button>
+        </div>
+    </div>
+    
+    <div class="info">
+        <div>Audio Context: <span id="audioContextState">-</span></div>
+        <div>Active Sources: <span id="activeSourceCount">0</span></div>
+        <div>Loaded Clips: <span id="loadedClipsCount">0</span></div>
+        <div>Listener Position: <span id="listenerPosition">0, 0</span></div>
+    </div>
+
+    <div class="status" id="statusLog">
+        Audio System Status: Initializing...
+    </div>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Transform,
+            SpriteRenderer,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+        
+        import { AudioManager } from '../src/audio/AudioManager.ts';
+        import { AudioClip } from '../src/audio/AudioClip.ts';
+        import { AudioSource as AudioSourceCore } from '../src/audio/AudioSource.ts';
+        import { AudioSource as AudioSourceComponent } from '../src/components/AudioSource.ts';
+
+        // Initialize the engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#1e1e1e',
+            targetFPS: 60
+        });
+
+        // Initialize audio system
+        let audioManager;
+        try {
+            audioManager = AudioManager.createInstance({
+                masterVolume: 1.0,
+                musicVolume: 0.8,
+                sfxVolume: 1.0,
+                enableSpatialAudio: true,
+                maxAudioSources: 16
+            });
+            log('Audio system initialized successfully');
+        } catch (error) {
+            log('Failed to initialize audio system: ' + error.message);
+        }
+
+        // Create scene
+        const scene = new Scene('Audio Demo');
+        
+        // Audio management
+        const audioClips = new Map();
+        const spatialSources = new Set();
+        let musicSource = null;
+        let listenerPosition = new Vector2(400, 300);
+        let autoMoveListener = false;
+
+        // Create synthetic audio clips
+        async function createSyntheticAudio() {
+            try {
+                const audioContext = audioManager.getAudioContext();
+                
+                // Create beep sound
+                const beepBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.2, audioContext.sampleRate);
+                const beepData = beepBuffer.getChannelData(0);
+                for (let i = 0; i < beepData.length; i++) {
+                    beepData[i] = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate) * 0.3 * Math.exp(-i / (audioContext.sampleRate * 0.1));
+                }
+                const beepClip = new AudioClip('beep', { url: 'synthetic://beep' });
+                beepClip.audioBuffer = beepBuffer;
+                beepClip.isLoaded = true;
+                audioManager.registerAudioClip('beep', beepClip);
+                audioClips.set('beep', beepClip);
+
+                // Create chord sound
+                const chordBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 1, audioContext.sampleRate);
+                const chordData = chordBuffer.getChannelData(0);
+                const frequencies = [261.63, 329.63, 392.00]; // C major chord
+                for (let i = 0; i < chordData.length; i++) {
+                    let sample = 0;
+                    frequencies.forEach(freq => {
+                        sample += Math.sin(2 * Math.PI * freq * i / audioContext.sampleRate) * 0.1;
+                    });
+                    chordData[i] = sample * Math.exp(-i / (audioContext.sampleRate * 0.5));
+                }
+                const chordClip = new AudioClip('chord', { url: 'synthetic://chord' });
+                chordClip.audioBuffer = chordBuffer;
+                chordClip.isLoaded = true;
+                audioManager.registerAudioClip('chord', chordClip);
+                audioClips.set('chord', chordClip);
+
+                // Create noise sound
+                const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.5, audioContext.sampleRate);
+                const noiseData = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < noiseData.length; i++) {
+                    noiseData[i] = (Math.random() * 2 - 1) * 0.2 * Math.exp(-i / (audioContext.sampleRate * 0.2));
+                }
+                const noiseClip = new AudioClip('noise', { url: 'synthetic://noise' });
+                noiseClip.audioBuffer = noiseBuffer;
+                noiseClip.isLoaded = true;
+                audioManager.registerAudioClip('noise', noiseClip);
+                audioClips.set('noise', noiseClip);
+
+                // Create ambient music
+                const musicBuffer = audioContext.createBuffer(2, audioContext.sampleRate * 4, audioContext.sampleRate);
+                for (let channel = 0; channel < musicBuffer.numberOfChannels; channel++) {
+                    const musicData = musicBuffer.getChannelData(channel);
+                    for (let i = 0; i < musicData.length; i++) {
+                        const time = i / audioContext.sampleRate;
+                        let sample = 0;
+                        sample += Math.sin(2 * Math.PI * 220 * time) * 0.1;
+                        sample += Math.sin(2 * Math.PI * 330 * time) * 0.1;
+                        sample += Math.sin(2 * Math.PI * 440 * time) * 0.05;
+                        sample *= Math.sin(Math.PI * time / 4); // Fade in/out
+                        musicData[i] = sample + (Math.random() * 0.02 - 0.01); // Add slight noise
+                    }
+                }
+                const musicClip = new AudioClip('ambient', { url: 'synthetic://ambient', loop: true });
+                musicClip.audioBuffer = musicBuffer;
+                musicClip.isLoaded = true;
+                audioManager.registerAudioClip('ambient', musicClip);
+                audioClips.set('ambient', musicClip);
+
+                log('Synthetic audio clips created successfully');
+                updateUI();
+            } catch (error) {
+                log('Failed to create synthetic audio: ' + error.message);
+            }
+        }
+
+        // Create visual representations
+        function createSprite(size, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw circle
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add border
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            return canvas;
+        }
+
+        // Create listener object
+        function createListener() {
+            const listener = new GameObject('Listener');
+            listener.transform.position = listenerPosition.clone();
+            
+            const spriteRenderer = listener.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(30, '#e74c3c'));
+            
+            scene.addGameObject(listener);
+            return listener;
+        }
+
+        // Create spatial audio source
+        function createSpatialAudioSource(position) {
+            const sourceObj = new GameObject('SpatialSource');
+            sourceObj.transform.position = position.clone();
+            
+            const spriteRenderer = sourceObj.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(25, '#f39c12'));
+            
+            const audioSource = sourceObj.addComponent(AudioSourceComponent, {
+                volume: 0.5,
+                loop: true,
+                spatialBlend: 1.0,
+                minDistance: 50,
+                maxDistance: 300,
+                audioType: 'sfx'
+            });
+            
+            // Make it interactive
+            sourceObj.isPlaying = false;
+            sourceObj.togglePlayback = function() {
+                if (this.isPlaying) {
+                    audioSource.stop();
+                    spriteRenderer.setSprite(createSprite(25, '#f39c12'));
+                    this.isPlaying = false;
+                } else {
+                    audioSource.setClip(audioClips.get('beep'));
+                    audioSource.play();
+                    spriteRenderer.setSprite(createSprite(25, '#27ae60'));
+                    this.isPlaying = true;
+                }
+            };
+            
+            scene.addGameObject(sourceObj);
+            spatialSources.add(sourceObj);
+            
+            return sourceObj;
+        }
+
+        // Input handling
+        let listenerObj;
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const clickPos = new Vector2(x, y);
+            
+            // Check if clicked on existing source
+            let clicked = false;
+            spatialSources.forEach(source => {
+                const distance = source.transform.position.distance(clickPos);
+                if (distance < 15) {
+                    source.togglePlayback();
+                    clicked = true;
+                }
+            });
+            
+            // Create new source if not clicked on existing one
+            if (!clicked && event.shiftKey) {
+                createSpatialAudioSource(clickPos);
+            }
+        });
+
+        // Movement controls
+        class ListenerController {
+            constructor(gameObject) {
+                this.gameObject = gameObject;
+                this.speed = 200;
+            }
+            
+            update() {
+                if (!autoMoveListener) {
+                    if (Input.getKey('w') || Input.getKey('W')) {
+                        this.gameObject.transform.position.y -= this.speed * Time.deltaTime;
+                    }
+                    if (Input.getKey('s') || Input.getKey('S')) {
+                        this.gameObject.transform.position.y += this.speed * Time.deltaTime;
+                    }
+                    if (Input.getKey('a') || Input.getKey('A')) {
+                        this.gameObject.transform.position.x -= this.speed * Time.deltaTime;
+                    }
+                    if (Input.getKey('d') || Input.getKey('D')) {
+                        this.gameObject.transform.position.x += this.speed * Time.deltaTime;
+                    }
+                } else {
+                    // Auto movement
+                    const time = Time.time * 0.5;
+                    this.gameObject.transform.position.x = 400 + Math.cos(time) * 150;
+                    this.gameObject.transform.position.y = 300 + Math.sin(time * 1.3) * 100;
+                }
+                
+                // Update audio manager listener position
+                listenerPosition = this.gameObject.transform.position.clone();
+                audioManager.setListenerPosition(listenerPosition);
+            }
+        }
+
+        // UI Controls
+        function setupUI() {
+            // Volume controls
+            const masterVolumeSlider = document.getElementById('masterVolume');
+            const musicVolumeSlider = document.getElementById('musicVolume');
+            const sfxVolumeSlider = document.getElementById('sfxVolume');
+            const spatialBlendSlider = document.getElementById('spatialBlend');
+
+            masterVolumeSlider.addEventListener('input', (e) => {
+                const value = e.target.value / 100;
+                audioManager.setMasterVolume(value);
+                document.getElementById('masterVolumeValue').textContent = e.target.value + '%';
+            });
+
+            musicVolumeSlider.addEventListener('input', (e) => {
+                const value = e.target.value / 100;
+                audioManager.setMusicVolume(value);
+                document.getElementById('musicVolumeValue').textContent = e.target.value + '%';
+            });
+
+            sfxVolumeSlider.addEventListener('input', (e) => {
+                const value = e.target.value / 100;
+                audioManager.setSfxVolume(value);
+                document.getElementById('sfxVolumeValue').textContent = e.target.value + '%';
+            });
+
+            spatialBlendSlider.addEventListener('input', (e) => {
+                const value = e.target.value / 100;
+                spatialSources.forEach(source => {
+                    const audioSource = source.getComponent(AudioSourceComponent);
+                    if (audioSource) {
+                        audioSource.setSpatialBlend(value);
+                    }
+                });
+                document.getElementById('spatialBlendValue').textContent = e.target.value + '%';
+            });
+
+            // Audio controls
+            document.getElementById('playBeep').onclick = () => {
+                audioManager.playSfx('beep', 0.5);
+            };
+
+            document.getElementById('playChord').onclick = () => {
+                audioManager.playSfx('chord', 0.3);
+            };
+
+            document.getElementById('playNoise').onclick = () => {
+                audioManager.playSfx('noise', 0.2);
+            };
+
+            document.getElementById('startMusic').onclick = () => {
+                if (musicSource) {
+                    musicSource.stop();
+                }
+                musicSource = audioManager.playMusic('ambient', 0.3, true);
+            };
+
+            document.getElementById('stopMusic').onclick = () => {
+                if (musicSource) {
+                    musicSource.stop();
+                    musicSource = null;
+                }
+            };
+
+            document.getElementById('stopAll').onclick = () => {
+                audioManager.stopAll();
+                musicSource = null;
+            };
+
+            // Spatial audio controls
+            document.getElementById('addSpatialSource').onclick = () => {
+                const randomPos = new Vector2(
+                    Math.random() * 700 + 50,
+                    Math.random() * 500 + 50
+                );
+                createSpatialAudioSource(randomPos);
+            };
+
+            document.getElementById('clearSources').onclick = () => {
+                spatialSources.forEach(source => {
+                    source.destroy();
+                });
+                spatialSources.clear();
+            };
+
+            document.getElementById('moveListener').onclick = () => {
+                autoMoveListener = !autoMoveListener;
+                document.getElementById('moveListener').textContent = 
+                    autoMoveListener ? 'Stop Auto Movement' : 'Start Auto Movement';
+            };
+
+            // Audio effects
+            document.getElementById('testFadeIn').onclick = () => {
+                const source = audioManager.playSfx('chord', 0);
+                if (source) {
+                    source.fadeIn(2.0);
+                }
+            };
+
+            document.getElementById('testFadeOut').onclick = () => {
+                const source = audioManager.playSfx('ambient', 0.5);
+                if (source) {
+                    setTimeout(() => source.fadeOut(2.0), 1000);
+                }
+            };
+
+            document.getElementById('testCrossFade').onclick = () => {
+                if (musicSource) {
+                    musicSource.crossFade(audioClips.get('chord'), 3.0);
+                }
+            };
+
+            document.getElementById('testPitchShift').onclick = () => {
+                const source = audioManager.playSfx('beep', 0.5, Math.random() * 2 + 0.5);
+            };
+        }
+
+        // Status logging
+        function log(message) {
+            const statusLog = document.getElementById('statusLog');
+            const timestamp = new Date().toLocaleTimeString();
+            statusLog.textContent = `[${timestamp}] ${message}`;
+            console.log(message);
+        }
+
+        // Update UI info
+        function updateUI() {
+            document.getElementById('audioContextState').textContent = 
+                audioManager ? audioManager.getAudioContext().state : 'Not initialized';
+            document.getElementById('activeSourceCount').textContent = 
+                audioManager ? audioManager.getActiveSourceCount() : 0;
+            document.getElementById('loadedClipsCount').textContent = audioClips.size;
+            document.getElementById('listenerPosition').textContent = 
+                `${listenerPosition.x.toFixed(0)}, ${listenerPosition.y.toFixed(0)}`;
+        }
+
+        // Initialize demo
+        async function initializeDemo() {
+            try {
+                await createSyntheticAudio();
+                
+                listenerObj = createListener();
+                const controller = new ListenerController(listenerObj);
+                
+                // Add update loop
+                scene.on('update', () => {
+                    controller.update();
+                });
+                
+                // Create initial spatial sources
+                createSpatialAudioSource(new Vector2(200, 200));
+                createSpatialAudioSource(new Vector2(600, 400));
+                
+                setupUI();
+                
+                engine.setScene(scene);
+                engine.start();
+                
+                log('Audio demo initialized successfully');
+                
+                // Update UI periodically
+                setInterval(updateUI, 500);
+                
+            } catch (error) {
+                log('Failed to initialize demo: ' + error.message);
+            }
+        }
+
+        // Handle audio context resume
+        document.addEventListener('click', () => {
+            if (audioManager && audioManager.getAudioContext().state === 'suspended') {
+                audioManager.getAudioContext().resume();
+            }
+        }, { once: true });
+
+        // Start the demo
+        initializeDemo();
+
+        console.log('ImplementEngine Audio System Demo initialized!');
+        console.log('Controls:');
+        console.log('- Click canvas (with Shift) to add sound sources');
+        console.log('- WASD to move listener');
+        console.log('- Click on sound sources to toggle playback');
+        console.log('- Use volume sliders and effect buttons');
+    </script>
+</body>
+</html>

@@ -15,6 +15,7 @@ export { Rigidbody2D, BodyType, ForceMode } from './components/Rigidbody2D';
 export { Collider2D, type Bounds2D, type RaycastHit2D, type ColliderDistance2D, type Collision2D, type ContactPoint2D, CollisionDetection2D } from './components/Collider2D';
 export { BoxCollider2D } from './components/BoxCollider2D';
 export { CircleCollider2D } from './components/CircleCollider2D';
+export { AudioSource as AudioSourceComponent } from './components/AudioSource';
 
 export { Animation } from './animation/Animation';
 export { SpriteAnimation, type SpriteAnimationData, type SpriteFrame } from './animation/SpriteAnimation';
@@ -24,6 +25,10 @@ export { AnimationStateMachine, type AnimationState, type AnimationTransition } 
 export { Physics2DWorld, type Physics2DSettings } from './physics/Physics2DWorld';
 export { PhysicsMaterial2D, CombineMode } from './physics/PhysicsMaterial2D';
 export { type CollisionInfo, type CollisionPair, type RaycastHit } from './physics/CollisionInfo';
+
+export { AudioManager, type AudioSettings } from './audio/AudioManager';
+export { AudioClip, type AudioClipData } from './audio/AudioClip';
+export { AudioSource, type AudioType, type AudioSourceConfig } from './audio/AudioSource';
 
 export { Vector2 } from './utils/Vector2';
 export { EventEmitter, type EventListener } from './utils/EventEmitter';
@@ -45,12 +50,16 @@ import { Rigidbody2D } from './components/Rigidbody2D';
 import { Collider2D } from './components/Collider2D';
 import { BoxCollider2D } from './components/BoxCollider2D';
 import { CircleCollider2D } from './components/CircleCollider2D';
+import { AudioSourceComponent } from './components/AudioSource';
 import { Animation } from './animation/Animation';
 import { SpriteAnimation } from './animation/SpriteAnimation';
 import { Tween, TweenManager } from './animation/Tween';
 import { AnimationStateMachine } from './animation/AnimationStateMachine';
 import { Physics2DWorld } from './physics/Physics2DWorld';
 import { PhysicsMaterial2D } from './physics/PhysicsMaterial2D';
+import { AudioManager } from './audio/AudioManager';
+import { AudioClip } from './audio/AudioClip';
+import { AudioSource } from './audio/AudioSource';
 import { Vector2 } from './utils/Vector2';
 import { EventEmitter } from './utils/EventEmitter';
 import { AssetLoader } from './utils/AssetLoader';
@@ -72,6 +81,7 @@ export const ImplementEngine = {
     Collider2D,
     BoxCollider2D,
     CircleCollider2D,
+    AudioSourceComponent,
     Animation,
     SpriteAnimation,
     Tween,
@@ -79,6 +89,9 @@ export const ImplementEngine = {
     AnimationStateMachine,
     Physics2DWorld,
     PhysicsMaterial2D,
+    AudioManager,
+    AudioClip,
+    AudioSource,
     Vector2,
     EventEmitter,
     AssetLoader,

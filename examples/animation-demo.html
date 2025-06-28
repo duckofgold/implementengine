@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Animation System Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImplementEngine Animation System Demo</h1>
+    <p>Comprehensive demonstration of sprite animations, tweening, and state machines</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Sprite Animation Controls</h3>
+        <div class="controls">
+            <button id="playIdle">Play Idle</button>
+            <button id="playWalk">Play Walk</button>
+            <button id="playRun">Play Run</button>
+            <button id="playJump">Play Jump</button>
+            <button id="pauseAnim">Pause</button>
+            <button id="resumeAnim">Resume</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Tweening Examples</h3>
+        <div class="controls">
+            <button id="tweenMove">Move Tween</button>
+            <button id="tweenScale">Scale Tween</button>
+            <button id="tweenRotate">Rotate Tween</button>
+            <button id="tweenColor">Color Tween</button>
+            <button id="tweenBounce">Bounce Effect</button>
+            <button id="tweenElastic">Elastic Effect</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>State Machine Demo</h3>
+        <div class="controls">
+            <button id="triggerAttack">Trigger Attack</button>
+            <button id="triggerJump">Trigger Jump</button>
+            <button id="triggerDamage">Trigger Damage</button>
+            <button id="resetState">Reset to Idle</button>
+        </div>
+    </div>
+    
+    <div class="info">
+        <p>Current Animation: <span id="currentAnim">None</span></p>
+        <p>Frame: <span id="currentFrame">0</span> / <span id="totalFrames">0</span></p>
+        <p>Progress: <span id="animProgress">0%</span></p>
+        <p>Active Tweens: <span id="tweenCount">0</span></p>
+    </div>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component, 
+            Transform, 
+            SpriteRenderer, 
+            Animator,
+            TweenManager,
+            Easing,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        // Initialize the engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#34495e',
+            targetFPS: 60
+        });
+
+        // Create scene
+        const scene = new Scene('Animation Demo');
+
+        // Create sprite sheets programmatically for demonstration
+        function createAnimationSprite(width, height, frameCount, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width * frameCount;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            
+            for (let i = 0; i < frameCount; i++) {
+                // Create simple animated frames with color variation
+                const hue = (color + i * 20) % 360;
+                ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+                ctx.fillRect(i * width, 0, width, height);
+                
+                // Add frame indicator
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.fillText(`${i + 1}`, i * width + 5, 15);
+            }
+            
+            return canvas;
+        }
+
+        // Create demo sprites
+        const idleSprite = createAnimationSprite(64, 64, 4, 200); // Blue-ish
+        const walkSprite = createAnimationSprite(64, 64, 6, 120); // Green-ish
+        const runSprite = createAnimationSprite(64, 64, 8, 0);   // Red-ish
+        const jumpSprite = createAnimationSprite(64, 64, 4, 60); // Yellow-ish
+
+        // Create animated character
+        const character = new GameObject('Character');
+        character.transform.position = new Vector2(400, 300);
+
+        // Add sprite renderer
+        const spriteRenderer = character.addComponent(SpriteRenderer);
+        spriteRenderer.setPivot(0.5, 0.5);
+
+        // Add animator
+        const animator = character.addComponent(Animator);
+
+        // Create animations
+        animator.createSpriteSheetAnimation('idle', idleSprite, 64, 64, 4, 6, true);
+        animator.createSpriteSheetAnimation('walk', walkSprite, 64, 64, 6, 12, true);
+        animator.createSpriteSheetAnimation('run', runSprite, 64, 64, 8, 16, true);
+        animator.createSpriteSheetAnimation('jump', jumpSprite, 64, 64, 4, 8, false);
+
+        // Set up state machine transitions
+        animator.addTransition('idle', 'walk');
+        animator.addTransition('walk', 'idle');
+        animator.addTransition('walk', 'run');
+        animator.addTransition('run', 'walk');
+        animator.addTransition('idle', 'jump');
+        animator.addTransition('jump', 'idle');
+        
+        // Trigger-based transitions for special moves
+        animator.addTriggerTransition('idle', 'attack', 'attack');
+        animator.addTriggerTransition('walk', 'attack', 'attack');
+        animator.addTriggerTransition('attack', 'idle', 'attackEnd');
+
+        animator.setDefaultAnimation('idle');
+
+        // Add character to scene
+        scene.addGameObject(character);
+
+        // Create some background objects for tweening demonstrations
+        const bgObjects = [];
+        for (let i = 0; i < 5; i++) {
+            const obj = new GameObject(`BG_${i}`);
+            obj.transform.position = new Vector2(100 + i * 150, 100);
+            
+            const renderer = obj.addComponent(SpriteRenderer);
+            const sprite = createAnimationSprite(32, 32, 1, i * 60);
+            renderer.setSprite(sprite);
+            renderer.alpha = 0.3;
+            renderer.sortingOrder = -1;
+            
+            scene.addGameObject(obj);
+            bgObjects.push(obj);
+        }
+
+        // UI Elements
+        const currentAnimSpan = document.getElementById('currentAnim');
+        const currentFrameSpan = document.getElementById('currentFrame');
+        const totalFramesSpan = document.getElementById('totalFrames');
+        const animProgressSpan = document.getElementById('animProgress');
+        const tweenCountSpan = document.getElementById('tweenCount');
+
+        // Button event listeners
+        document.getElementById('playIdle').onclick = () => animator.play('idle');
+        document.getElementById('playWalk').onclick = () => animator.play('walk');
+        document.getElementById('playRun').onclick = () => animator.play('run');
+        document.getElementById('playJump').onclick = () => animator.play('jump');
+        document.getElementById('pauseAnim').onclick = () => animator.pause();
+        document.getElementById('resumeAnim').onclick = () => animator.resume();
+
+        // Tweening examples
+        document.getElementById('tweenMove').onclick = () => {
+            TweenManager.to(character.transform, { 
+                position: new Vector2(
+                    Math.random() * 700 + 50, 
+                    Math.random() * 500 + 50
+                ) 
+            }, 1, 'easeOutBounce');
+        };
+
+        document.getElementById('tweenScale').onclick = () => {
+            const targetScale = Math.random() * 1.5 + 0.5;
+            TweenManager.to(character.transform, { 
+                scale: new Vector2(targetScale, targetScale) 
+            }, 0.5, 'easeOutElastic');
+        };
+
+        document.getElementById('tweenRotate').onclick = () => {
+            const currentRotation = character.transform.rotation;
+            TweenManager.to(character.transform, { 
+                rotation: currentRotation + Math.PI * 2 
+            }, 1, 'easeInOutQuad');
+        };
+
+        document.getElementById('tweenColor').onclick = () => {
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            // Animate color by creating a custom tween
+            let progress = 0;
+            const colorTween = TweenManager.to({ progress: 0 }, { progress: 1 }, 1, 'easeInOutSine');
+            colorTween.onUpdate = (target, p) => {
+                spriteRenderer.color = randomColor;
+                spriteRenderer.alpha = 0.5 + p * 0.5;
+            };
+            colorTween.onComplete = () => {
+                spriteRenderer.color = '#FFFFFF';
+                spriteRenderer.alpha = 1;
+            };
+        };
+
+        document.getElementById('tweenBounce').onclick = () => {
+            const originalY = character.transform.position.y;
+            TweenManager.to(character.transform, { 
+                position: new Vector2(character.transform.position.x, originalY - 100) 
+            }, 0.3, 'easeOutQuad').onComplete = () => {
+                TweenManager.to(character.transform, { 
+                    position: new Vector2(character.transform.position.x, originalY) 
+                }, 0.4, 'easeOutBounce');
+            };
+        };
+
+        document.getElementById('tweenElastic').onclick = () => {
+            // Animate background objects in sequence
+            bgObjects.forEach((obj, index) => {
+                setTimeout(() => {
+                    const originalY = obj.transform.position.y;
+                    TweenManager.to(obj.transform, { 
+                        position: new Vector2(obj.transform.position.x, originalY + 50) 
+                    }, 0.5, 'easeOutElastic').onComplete = () => {
+                        TweenManager.to(obj.transform, { 
+                            position: new Vector2(obj.transform.position.x, originalY) 
+                        }, 0.5, 'easeInElastic');
+                    };
+                }, index * 100);
+            });
+        };
+
+        // State machine triggers
+        document.getElementById('triggerAttack').onclick = () => animator.trigger('attack');
+        document.getElementById('triggerJump').onclick = () => animator.play('jump');
+        document.getElementById('triggerDamage').onclick = () => {
+            // Create a damage effect
+            const originalColor = spriteRenderer.color;
+            spriteRenderer.color = '#ff4444';
+            setTimeout(() => {
+                spriteRenderer.color = originalColor;
+            }, 200);
+        };
+        document.getElementById('resetState').onclick = () => animator.play('idle');
+
+        // Animation event listeners
+        animator.on('animationChanged', (event) => {
+            console.log('Animation changed:', event);
+        });
+
+        animator.on('transitionStarted', (event) => {
+            console.log('Transition started:', event);
+        });
+
+        // Start the engine
+        engine.setScene(scene);
+        engine.start();
+
+        // Update UI
+        function updateUI() {
+            currentAnimSpan.textContent = animator.currentAnimation || 'None';
+            currentFrameSpan.textContent = animator.getCurrentFrame();
+            totalFramesSpan.textContent = animator.getFrameCount();
+            animProgressSpan.textContent = Math.round(animator.getProgress() * 100) + '%';
+            tweenCountSpan.textContent = TweenManager.getInstance().getTweenCount();
+        }
+
+        setInterval(updateUI, 100);
+
+        console.log('ImplementEngine Animation Demo initialized!');
+        console.log('Available controls:');
+        console.log('- Sprite animations: idle, walk, run, jump');
+        console.log('- Tweening: position, scale, rotation, color effects');
+        console.log('- State machine: trigger-based transitions');
+    </script>
+</body>
+</html>

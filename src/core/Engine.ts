@@ -4,6 +4,7 @@ import { Input } from './Input';
 import { Renderer } from '../rendering/Renderer';
 import { EventEmitter } from '../utils/EventEmitter';
 import { SpriteRenderer } from '../components/SpriteRenderer';
+import { TweenManager } from '../animation/Tween';
 
 export interface EngineConfig {
     canvas?: HTMLCanvasElement;
@@ -221,6 +222,7 @@ export class Engine extends EventEmitter {
         
         Time.update();
         Input.update();
+        TweenManager.getInstance().update(Time.deltaTime);
         
         if (this.currentScene) {
             this.currentScene.update();

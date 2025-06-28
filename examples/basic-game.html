@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Basic Game Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>ImplementEngine Basic Game</h1>
+    <p>Use WASD or Arrow Keys to move the square</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="info">
+        <p>FPS: <span id="fps">0</span></p>
+        <p>Position: <span id="position">0, 0</span></p>
+    </div>
+
+    <script type="module">
+        // Simple basic game example that demonstrates ImplementEngine
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component, 
+            Transform, 
+            SpriteRenderer, 
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        // Player Controller Component
+        class PlayerController extends Component {
+            speed = 200;
+            
+            update() {
+                if (!this.transform) return;
+
+                const movement = new Vector2();
+                
+                if (Input.getKey('w') || Input.getKey('ArrowUp')) {
+                    movement.y -= 1;
+                }
+                if (Input.getKey('s') || Input.getKey('ArrowDown')) {
+                    movement.y += 1;
+                }
+                if (Input.getKey('a') || Input.getKey('ArrowLeft')) {
+                    movement.x -= 1;
+                }
+                if (Input.getKey('d') || Input.getKey('ArrowRight')) {
+                    movement.x += 1;
+                }
+                
+                if (movement.magnitude() > 0) {
+                    movement.normalize();
+                    const velocity = movement.multiply(this.speed * Time.deltaTime);
+                    this.transform.translate(velocity);
+                }
+
+                // Update UI
+                document.getElementById('position').textContent = 
+                    `${this.transform.position.x.toFixed(1)}, ${this.transform.position.y.toFixed(1)}`;
+            }
+        }
+
+        // Initialize the engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#2C3E50',
+            targetFPS: 60
+        });
+
+        // Create a scene
+        const gameScene = new Scene('Game Scene');
+
+        // Create a simple colored rectangle as our sprite
+        function createColoredSprite(width, height, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
+            return canvas;
+        }
+
+        // Create player object
+        const player = new GameObject('Player');
+        player.transform.position = new Vector2(400, 300); // Center of screen
+
+        // Add sprite renderer with a blue square
+        const spriteRenderer = player.addComponent(SpriteRenderer);
+        spriteRenderer.setSprite(createColoredSprite(32, 32, '#3498db'));
+
+        // Add player controller
+        const playerController = player.addComponent(PlayerController);
+
+        // Add player to scene
+        gameScene.addGameObject(player);
+
+        // Create some background objects
+        for (let i = 0; i < 10; i++) {
+            const bgObject = new GameObject(`Background_${i}`);
+            bgObject.transform.position = new Vector2(
+                Math.random() * 800,
+                Math.random() * 600
+            );
+            
+            const bgSprite = bgObject.addComponent(SpriteRenderer);
+            bgSprite.setSprite(createColoredSprite(16, 16, '#34495e'));
+            bgSprite.alpha = 0.5;
+            bgSprite.sortingOrder = -1; // Behind player
+            
+            gameScene.addGameObject(bgObject);
+        }
+
+        // Set the scene and start the engine
+        engine.setScene(gameScene);
+        engine.start();
+
+        // Update FPS display
+        setInterval(() => {
+            document.getElementById('fps').textContent = engine.getCurrentFPS().toString();
+        }, 100);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const rect = canvas.getBoundingClientRect();
+            engine.resize(rect.width, rect.height);
+        });
+
+        console.log('ImplementEngine Basic Game initialized!');
+        console.log('Engine instance:', engine);
+        console.log('Scene:', gameScene);
+    </script>
+</body>
+</html>

@@ -50,7 +50,7 @@ import { Rigidbody2D } from './components/Rigidbody2D';
 import { Collider2D } from './components/Collider2D';
 import { BoxCollider2D } from './components/BoxCollider2D';
 import { CircleCollider2D } from './components/CircleCollider2D';
-import { AudioSourceComponent } from './components/AudioSource';
+import { AudioSource as AudioSourceComponent } from './components/AudioSource';
 import { Animation } from './animation/Animation';
 import { SpriteAnimation } from './animation/SpriteAnimation';
 import { Tween, TweenManager } from './animation/Tween';

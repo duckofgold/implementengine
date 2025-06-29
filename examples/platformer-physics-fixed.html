@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Platformer Physics Demo (Working)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .slider-group {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-group label {
+            min-width: 120px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .value-display {
+            min-width: 50px;
+            text-align: right;
+            font-family: monospace;
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .instructions {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .materials-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+
+        .material-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px;
+            background: #2c3e50;
+            border-radius: 4px;
+        }
+
+        .material-color {
+            width: 15px;
+            height: 15px;
+            border: 1px solid white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 ImplementEngine Platformer Physics Demo</h1>
+    <p>Test physics materials by walking and jumping on different platforms!</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Player Controls</h3>
+        <div class="controls">
+            <button id="resetPlayer">Reset Player</button>
+            <button id="addBox">Drop Box</button>
+            <button id="addBall">Drop Ball</button>
+            <button id="clearObjects">Clear Objects</button>
+        </div>
+        <p style="color: #888; margin: 10px 0;">
+            <strong>WASD:</strong> Move & Jump | <strong>Space:</strong> Jump
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Physics Settings</h3>
+        <div class="slider-group">
+            <label>Gravity:</label>
+            <input type="range" id="gravitySlider" min="200" max="2000" value="981" step="50">
+            <span class="value-display" id="gravityValue">981</span>
+        </div>
+        <div class="slider-group">
+            <label>Player Speed:</label>
+            <input type="range" id="playerSpeed" min="100" max="500" value="200" step="25">
+            <span class="value-display" id="playerSpeedValue">200</span>
+        </div>
+        <div class="slider-group">
+            <label>Jump Force:</label>
+            <input type="range" id="jumpForce" min="300" max="800" value="400" step="25">
+            <span class="value-display" id="jumpForceValue">400</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Material Types</h3>
+        <div class="materials-legend">
+            <div class="material-item">
+                <div class="material-color" style="background: #8b4513;"></div>
+                <span>Wood (Normal)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #74b9ff;"></div>
+                <span>Ice (Slippery)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #fd79a8;"></div>
+                <span>Rubber (Bouncy)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #636e72;"></div>
+                <span>Metal (Heavy)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #00b894;"></div>
+                <span>Super Bouncy</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <strong>How to Test Physics:</strong><br>
+        1. Use WASD or Arrow Keys to move the blue player character<br>
+        2. Try jumping on different colored platforms to feel the materials<br>
+        3. Ice platforms are slippery, rubber platforms are bouncy<br>
+        4. Drop boxes and balls to test collision detection<br>
+        5. Adjust physics settings with the sliders above
+    </div>
+    
+    <div class="info">
+        <div>Player Position: <span id="playerPosition">0, 0</span></div>
+        <div>Player Velocity: <span id="playerVelocity">0, 0</span></div>
+        <div>Objects: <span id="objectCount">0</span></div>
+        <div>FPS: <span id="fps">0</span></div>
+    </div>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component,
+            Transform,
+            SpriteRenderer,
+            Rigidbody2D,
+            BoxCollider2D,
+            CircleCollider2D,
+            BodyType,
+            ForceMode,
+            PhysicsMaterial2D,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        // Initialize the engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#87CEEB', // Sky blue
+            targetFPS: 60
+        });
+
+        console.log('Engine created:', engine);
+
+        // Get physics world reference
+        const physicsWorld = engine.getPhysicsWorld();
+        console.log('Physics world:', physicsWorld);
+
+        // Create scene
+        const scene = new Scene('Platformer Physics Demo');
+
+        // Game state
+        let player = null;
+        let droppedObjects = [];
+
+        // Physics settings
+        let gameSettings = {
+            gravity: 981,
+            playerSpeed: 200,
+            jumpForce: 400
+        };
+
+        // Create sprites
+        function createSprite(width, height, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Add border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, width-2, height-2);
+            
+            return canvas;
+        }
+
+        function createCircleSprite(radius, color) {
+            const size = radius * 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius-2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            return canvas;
+        }
+
+        // Simple player controller
+        class SimplePlayerController extends Component {
+            constructor() {
+                super();
+                this.speed = gameSettings.playerSpeed;
+                this.jumpForce = gameSettings.jumpForce;
+                this.canJump = true;
+                this.jumpCooldown = 0;
+            }
+
+            update() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                if (!rigidbody) return;
+
+                // Update settings
+                this.speed = gameSettings.playerSpeed;
+                this.jumpForce = gameSettings.jumpForce;
+
+                // Handle jump cooldown
+                if (this.jumpCooldown > 0) {
+                    this.jumpCooldown -= Time.deltaTime;
+                    if (this.jumpCooldown <= 0) {
+                        this.canJump = true;
+                    }
+                }
+
+                // Movement input
+                let moveDirection = 0;
+
+                if (Input.getKey('a') || Input.getKey('A') || Input.getKey('ArrowLeft')) {
+                    moveDirection = -1;
+                }
+                if (Input.getKey('d') || Input.getKey('D') || Input.getKey('ArrowRight')) {
+                    moveDirection = 1;
+                }
+
+                // Apply horizontal force
+                if (moveDirection !== 0) {
+                    const force = new Vector2(moveDirection * this.speed * 10, 0);
+                    rigidbody.addForce(force, ForceMode.Force);
+                }
+
+                // Apply drag to horizontal movement
+                const velocity = rigidbody.getVelocity();
+                const horizontalDrag = new Vector2(-velocity.x * 5, 0);
+                rigidbody.addForce(horizontalDrag, ForceMode.Force);
+
+                // Jump input
+                const jumpPressed = Input.getKeyDown(' ') || Input.getKeyDown('w') || Input.getKeyDown('W') || Input.getKeyDown('ArrowUp');
+                
+                if (jumpPressed && this.canJump) {
+                    this.jump();
+                }
+
+                // Simple ground detection - if velocity is low and position is low
+                if (Math.abs(velocity.y) < 50 && this.transform.position.y > 400) {
+                    this.canJump = true;
+                } else if (velocity.y > 100) {
+                    this.canJump = false;
+                }
+            }
+
+            jump() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                const jumpForceVector = new Vector2(0, -this.jumpForce);
+                rigidbody.addForce(jumpForceVector, ForceMode.Impulse);
+                
+                this.canJump = false;
+                this.jumpCooldown = 0.2; // Prevent immediate double jumps
+            }
+
+            getVelocity() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                return rigidbody ? rigidbody.getVelocity() : Vector2.zero;
+            }
+        }
+
+        // Create player
+        function createPlayer() {
+            const playerObj = new GameObject('Player');
+            playerObj.transform.position = new Vector2(100, 400);
+            
+            const spriteRenderer = playerObj.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(40, 50, '#3498db')); // Blue player
+            
+            const rigidbody = playerObj.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.setMass(1);
+            
+            const collider = playerObj.addComponent(BoxCollider2D, new Vector2(40, 50));
+            
+            const controller = playerObj.addComponent(SimplePlayerController);
+            
+            scene.addGameObject(playerObj);
+            return playerObj;
+        }
+
+        // Create platform
+        function createPlatform(x, y, width, height, material, color) {
+            const platform = new GameObject('Platform');
+            platform.transform.position = new Vector2(x, y);
+            
+            const spriteRenderer = platform.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(width, height, color));
+            
+            const rigidbody = platform.addComponent(Rigidbody2D, BodyType.Static);
+            rigidbody.material = material;
+            
+            const collider = platform.addComponent(BoxCollider2D, new Vector2(width, height));
+            collider.material = material;
+            
+            scene.addGameObject(platform);
+            return platform;
+        }
+
+        // Create dynamic objects
+        function createBox(position) {
+            const box = new GameObject('Box');
+            box.transform.position = position.clone();
+            
+            const spriteRenderer = box.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createSprite(30, 30, '#e67e22')); // Orange box
+            
+            const rigidbody = box.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.setMass(2);
+            
+            const collider = box.addComponent(BoxCollider2D, new Vector2(30, 30));
+            
+            scene.addGameObject(box);
+            droppedObjects.push(box);
+            return box;
+        }
+
+        function createBall(position) {
+            const ball = new GameObject('Ball');
+            ball.transform.position = position.clone();
+            
+            const spriteRenderer = ball.addComponent(SpriteRenderer);
+            spriteRenderer.setSprite(createCircleSprite(15, '#e74c3c')); // Red ball
+            
+            const rigidbody = ball.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.setMass(1);
+            rigidbody.material = PhysicsMaterial2D.Bouncy;
+            
+            const collider = ball.addComponent(CircleCollider2D, 15);
+            collider.material = PhysicsMaterial2D.Bouncy;
+            
+            scene.addGameObject(ball);
+            droppedObjects.push(ball);
+            return ball;
+        }
+
+        // Create level
+        function createLevel() {
+            console.log('Creating level...');
+            
+            // Ground
+            createPlatform(400, 580, 800, 40, PhysicsMaterial2D.Wood, '#8b4513');
+            
+            // Wooden platforms
+            createPlatform(150, 450, 120, 20, PhysicsMaterial2D.Wood, '#8b4513');
+            createPlatform(650, 450, 120, 20, PhysicsMaterial2D.Wood, '#8b4513');
+            
+            // Ice platform (slippery)
+            createPlatform(300, 350, 100, 20, PhysicsMaterial2D.Ice, '#74b9ff');
+            
+            // Rubber platform (bouncy)
+            createPlatform(500, 350, 100, 20, PhysicsMaterial2D.Rubber, '#fd79a8');
+            
+            // Metal platform
+            createPlatform(100, 250, 120, 20, PhysicsMaterial2D.Metal, '#636e72');
+            
+            // Super bouncy platform
+            createPlatform(600, 250, 120, 20, PhysicsMaterial2D.Bouncy, '#00b894');
+            
+            // Walls
+            createPlatform(10, 300, 20, 600, PhysicsMaterial2D.Wood, '#8b4513');
+            createPlatform(790, 300, 20, 600, PhysicsMaterial2D.Wood, '#8b4513');
+            
+            console.log('Level created');
+        }
+
+        // UI Controls
+        function setupUI() {
+            // Physics controls
+            const gravitySlider = document.getElementById('gravitySlider');
+            const gravityValue = document.getElementById('gravityValue');
+            const playerSpeedSlider = document.getElementById('playerSpeed');
+            const playerSpeedValue = document.getElementById('playerSpeedValue');
+            const jumpForceSlider = document.getElementById('jumpForce');
+            const jumpForceValue = document.getElementById('jumpForceValue');
+
+            gravitySlider.addEventListener('input', () => {
+                gameSettings.gravity = parseFloat(gravitySlider.value);
+                physicsWorld.setGravity(new Vector2(0, gameSettings.gravity));
+                gravityValue.textContent = gravitySlider.value;
+            });
+
+            playerSpeedSlider.addEventListener('input', () => {
+                gameSettings.playerSpeed = parseFloat(playerSpeedSlider.value);
+                playerSpeedValue.textContent = playerSpeedSlider.value;
+            });
+
+            jumpForceSlider.addEventListener('input', () => {
+                gameSettings.jumpForce = parseFloat(jumpForceSlider.value);
+                jumpForceValue.textContent = jumpForceSlider.value;
+            });
+
+            // Button controls
+            document.getElementById('resetPlayer').onclick = () => {
+                if (player) {
+                    player.transform.position = new Vector2(100, 400);
+                    const rigidbody = player.getComponent(Rigidbody2D);
+                    if (rigidbody) {
+                        rigidbody.setVelocity(Vector2.zero);
+                    }
+                }
+            };
+
+            document.getElementById('addBox').onclick = () => {
+                createBox(new Vector2(400, 100));
+            };
+
+            document.getElementById('addBall').onclick = () => {
+                createBall(new Vector2(400, 100));
+            };
+
+            document.getElementById('clearObjects').onclick = () => {
+                droppedObjects.forEach(obj => {
+                    try {
+                        obj.destroy();
+                    } catch (e) {
+                        console.log('Error destroying object:', e);
+                    }
+                });
+                droppedObjects = [];
+            };
+        }
+
+        // Update UI
+        function updateUI() {
+            if (player) {
+                const position = player.transform.position;
+                document.getElementById('playerPosition').textContent = 
+                    `${position.x.toFixed(1)}, ${position.y.toFixed(1)}`;
+                
+                const controller = player.getComponent(SimplePlayerController);
+                if (controller) {
+                    const velocity = controller.getVelocity();
+                    document.getElementById('playerVelocity').textContent = 
+                        `${velocity.x.toFixed(1)}, ${velocity.y.toFixed(1)}`;
+                }
+            }
+            
+            document.getElementById('objectCount').textContent = droppedObjects.length;
+            document.getElementById('fps').textContent = engine.getCurrentFPS();
+        }
+
+        // Initialize game
+        function initializeGame() {
+            console.log('Initializing game...');
+            
+            try {
+                createLevel();
+                player = createPlayer();
+                
+                setupUI();
+                
+                engine.setScene(scene);
+                engine.start();
+                
+                console.log('Game started successfully');
+                
+                // Update UI periodically
+                setInterval(updateUI, 100);
+                
+            } catch (error) {
+                console.error('Error initializing game:', error);
+            }
+        }
+
+        // Start the game
+        console.log('Starting platformer demo...');
+        initializeGame();
+    </script>
+</body>
+</html>

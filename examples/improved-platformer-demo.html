@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Improved Platformer Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            background: #87CEEB;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .instructions {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .materials-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+
+        .material-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #34495e;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+
+        .material-color {
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            border-radius: 3px;
+        }
+
+        .camera-info {
+            background: #2c3e50;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Improved Platformer Physics Demo</h1>
+    <p>Explore different material platforms with camera following and proper spawning!</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Controls & Camera</h3>
+        <div class="controls">
+            <button id="resetPlayer">Reset Player</button>
+            <button id="addBox">Drop Box</button>
+            <button id="addBall">Drop Ball</button>
+            <button id="clearObjects">Clear Objects</button>
+            <button id="toggleCameraFollow">Toggle Camera Follow</button>
+        </div>
+        <p style="color: #888; margin: 10px 0;">
+            <strong>A/D or ←/→:</strong> Move | <strong>W/Space/↑:</strong> Jump | <strong>Camera follows player automatically</strong>
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Material Testing Platforms</h3>
+        <div class="materials-legend">
+            <div class="material-item">
+                <div class="material-color" style="background: #8b4513;"></div>
+                <span><strong>Wood:</strong> Normal friction (0.7), low bounce (0.3)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #74b9ff;"></div>
+                <span><strong>Ice:</strong> Very slippery (0.02), minimal bounce (0.1)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #fd79a8;"></div>
+                <span><strong>Rubber:</strong> High friction (1.0), bouncy (0.8)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #636e72;"></div>
+                <span><strong>Metal:</strong> Low friction (0.15), minimal bounce (0.2)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #00b894;"></div>
+                <span><strong>Super Bouncy:</strong> Medium friction (0.3), max bounce (1.0)</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #a29bfe;"></div>
+                <span><strong>Platform:</strong> Starting platform with normal properties</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <strong>Platformer Physics Test Course:</strong><br>
+        1. <strong>Start on the purple platform</strong> - Your spawn point<br>
+        2. <strong>Jump to the wooden platform</strong> - Feel normal physics<br>
+        3. <strong>Try the ice platform</strong> - Notice how you slide around<br>
+        4. <strong>Bounce on rubber</strong> - See how it absorbs and returns energy<br>
+        5. <strong>Test metal platform</strong> - Slippery but doesn't bounce much<br>
+        6. <strong>Experience super bouncy</strong> - Extreme bounce physics<br>
+        7. <strong>Drop objects</strong> to see how they interact with materials<br>
+        8. <strong>Camera follows you</strong> as you explore the level
+    </div>
+    
+    <div class="camera-info">
+        Camera Position: <span id="cameraPos">0, 0</span> | Following: <span id="cameraFollow">ON</span>
+    </div>
+    
+    <div class="info">
+        <div>Player Position: <span id="playerPos">0, 0</span></div>
+        <div>Player Velocity: <span id="playerVel">0, 0</span></div>
+        <div>On Ground: <span id="onGround">false</span></div>
+        <div>Objects: <span id="objectCount">0</span></div>
+        <div>Current Platform: <span id="currentPlatform">Starting</span></div>
+        <div>Status: <span id="status">Loading...</span></div>
+    </div>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component,
+            Transform,
+            SpriteRenderer,
+            Rigidbody2D,
+            BoxCollider2D,
+            CircleCollider2D,
+            BodyType,
+            ForceMode,
+            PhysicsMaterial2D,
+            Camera,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        console.log('Starting improved platformer demo...');
+
+        // Initialize engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#87CEEB',
+            targetFPS: 60
+        });
+
+        // Create scene
+        const scene = new Scene('Improved Platformer');
+        
+        // Camera
+        const camera = new Camera(new Vector2(400, 300), 1.0);
+        scene.setCamera(camera);
+        
+        // Game objects
+        let player = null;
+        let droppedObjects = [];
+        let cameraFollowEnabled = true;
+        let platforms = [];
+
+        // Helper function to create colored rectangles with better styling
+        function createRectSprite(width, height, color, borderColor = '#000') {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            
+            // Main color
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Gradient for depth
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Border
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, width-2, height-2);
+            
+            return canvas;
+        }
+
+        function createCircleSprite(radius, color, borderColor = '#000') {
+            const size = radius * 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Main circle
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius-2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Gradient for depth
+            const gradient = ctx.createRadialGradient(radius*0.3, radius*0.3, 0, radius, radius, radius);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Border
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            return canvas;
+        }
+
+        // Enhanced player controller with ground detection
+        class EnhancedPlayerController extends Component {
+            constructor() {
+                super();
+                this.moveSpeed = 400;
+                this.jumpForce = 500;
+                this.isGrounded = false;
+                this.groundCheckTolerance = 30;
+                this.lastGroundY = 0;
+                this.currentPlatformType = 'Starting';
+                this.coyoteTime = 0.15;
+                this.coyoteTimer = 0;
+                this.jumpBuffer = 0.1;
+                this.jumpBufferTimer = 0;
+            }
+
+            update() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                if (!rigidbody) return;
+
+                // Update coyote time and jump buffer
+                if (this.coyoteTimer > 0) this.coyoteTimer -= Time.deltaTime;
+                if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= Time.deltaTime;
+
+                // Ground detection
+                this.checkGrounded();
+                
+                // Horizontal movement
+                let moveInput = 0;
+                if (Input.getKey('a') || Input.getKey('A') || Input.getKey('ArrowLeft')) {
+                    moveInput = -1;
+                }
+                if (Input.getKey('d') || Input.getKey('D') || Input.getKey('ArrowRight')) {
+                    moveInput = 1;
+                }
+
+                // Apply movement force
+                if (moveInput !== 0) {
+                    const force = new Vector2(moveInput * this.moveSpeed, 0);
+                    rigidbody.addForce(force, ForceMode.Force);
+                }
+
+                // Apply horizontal drag
+                const vel = rigidbody.velocity;
+                if (Math.abs(vel.x) > 1) {
+                    const dragFactor = this.isGrounded ? 12 : 4; // More drag on ground
+                    const dragForce = new Vector2(-vel.x * dragFactor, 0);
+                    rigidbody.addForce(dragForce, ForceMode.Force);
+                }
+
+                // Jump input buffering
+                const jumpInput = Input.getKeyDown('w') || Input.getKeyDown('W') || 
+                                Input.getKeyDown(' ') || Input.getKeyDown('ArrowUp');
+                
+                if (jumpInput) {
+                    this.jumpBufferTimer = this.jumpBuffer;
+                }
+
+                // Execute jump
+                if (this.jumpBufferTimer > 0 && (this.isGrounded || this.coyoteTimer > 0)) {
+                    this.jump();
+                    this.jumpBufferTimer = 0;
+                    this.coyoteTimer = 0;
+                }
+
+                // Update camera
+                if (cameraFollowEnabled && camera) {
+                    const targetPos = this.transform.position.clone();
+                    const currentCamPos = camera.position;
+                    
+                    // Smooth camera following
+                    const lerpFactor = 3 * Time.deltaTime;
+                    const newCamX = currentCamPos.x + (targetPos.x - currentCamPos.x) * lerpFactor;
+                    const newCamY = currentCamPos.y + (targetPos.y - 100 - currentCamPos.y) * lerpFactor; // Offset up a bit
+                    
+                    camera.setPosition(new Vector2(newCamX, newCamY));
+                }
+
+                // Detect current platform type
+                this.detectCurrentPlatform();
+            }
+
+            checkGrounded() {
+                const wasGrounded = this.isGrounded;
+                const vel = this.getComponent(Rigidbody2D).velocity;
+                const pos = this.transform.position;
+                
+                // Check if we're near any platform
+                this.isGrounded = false;
+                const platformYPositions = [
+                    550, // Ground
+                    450, // Starting platform
+                    350, // Wood platform
+                    250, // Ice platform  
+                    150, // Rubber platform
+                    50,  // Metal platform
+                    -50, // Super bouncy platform
+                ];
+                
+                if (Math.abs(vel.y) < 100) { // Not moving fast vertically
+                    for (const platformY of platformYPositions) {
+                        if (Math.abs(pos.y - platformY + 20) < this.groundCheckTolerance) {
+                            this.isGrounded = true;
+                            this.lastGroundY = platformY;
+                            break;
+                        }
+                    }
+                }
+
+                // Start coyote time when leaving ground
+                if (wasGrounded && !this.isGrounded) {
+                    this.coyoteTimer = this.coyoteTime;
+                }
+            }
+
+            detectCurrentPlatform() {
+                const pos = this.transform.position;
+                
+                if (pos.y > 500) this.currentPlatformType = 'Ground';
+                else if (pos.y > 400 && pos.x < 300) this.currentPlatformType = 'Starting Platform';
+                else if (pos.y > 300 && pos.x > 200 && pos.x < 450) this.currentPlatformType = 'Wood';
+                else if (pos.y > 200 && pos.x > 450 && pos.x < 650) this.currentPlatformType = 'Ice';
+                else if (pos.y > 100 && pos.x > 100 && pos.x < 350) this.currentPlatformType = 'Rubber';
+                else if (pos.y > 0 && pos.x > 500 && pos.x < 750) this.currentPlatformType = 'Metal';
+                else if (pos.y > -100 && pos.x > 300 && pos.x < 500) this.currentPlatformType = 'Super Bouncy';
+                else this.currentPlatformType = 'Air';
+            }
+
+            jump() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                rigidbody.velocity = new Vector2(rigidbody.velocity.x, -this.jumpForce);
+            }
+
+            getVelocity() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                return rigidbody ? rigidbody.velocity : Vector2.zero;
+            }
+
+            getCurrentPlatform() {
+                return this.currentPlatformType;
+            }
+
+            getIsGrounded() {
+                return this.isGrounded;
+            }
+        }
+
+        // Create player
+        function createPlayer() {
+            const playerObj = new GameObject('Player');
+            // Spawn on top of the starting platform
+            playerObj.transform.position = new Vector2(200, 400); // Above starting platform
+            
+            const sprite = playerObj.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(35, 45, '#3498db', '#2c3e50'));
+            
+            const rigidbody = playerObj.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.mass = 1;
+            rigidbody.drag = 1;
+            rigidbody.freezeRotation = true;
+            
+            const collider = playerObj.addComponent(BoxCollider2D, new Vector2(35, 45));
+            
+            const controller = playerObj.addComponent(EnhancedPlayerController);
+            
+            scene.addGameObject(playerObj);
+            return playerObj;
+        }
+
+        // Create platform with label
+        function createPlatform(x, y, width, height, material, color, label) {
+            const platform = new GameObject(`Platform_${label}`);
+            platform.transform.position = new Vector2(x, y);
+            
+            const sprite = platform.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(width, height, color, '#2c3e50'));
+            
+            const rigidbody = platform.addComponent(Rigidbody2D, BodyType.Static);
+            rigidbody.material = material;
+            
+            const collider = platform.addComponent(BoxCollider2D, new Vector2(width, height));
+            collider.material = material;
+            
+            scene.addGameObject(platform);
+            platforms.push({ platform, label, material: material.name });
+            return platform;
+        }
+
+        // Create dynamic objects
+        function createBox(x, y) {
+            const box = new GameObject('Box');
+            box.transform.position = new Vector2(x, y);
+            
+            const sprite = box.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(25, 25, '#e67e22', '#d35400'));
+            
+            const rigidbody = box.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.mass = 1.5;
+            rigidbody.material = PhysicsMaterial2D.Wood;
+            
+            const collider = box.addComponent(BoxCollider2D, new Vector2(25, 25));
+            collider.material = PhysicsMaterial2D.Wood;
+            
+            scene.addGameObject(box);
+            droppedObjects.push(box);
+            return box;
+        }
+
+        function createBall(x, y) {
+            const ball = new GameObject('Ball');
+            ball.transform.position = new Vector2(x, y);
+            
+            const sprite = ball.addComponent(SpriteRenderer);
+            sprite.setSprite(createCircleSprite(12, '#e74c3c', '#c0392b'));
+            
+            const rigidbody = ball.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.mass = 0.8;
+            rigidbody.material = PhysicsMaterial2D.Bouncy;
+            
+            const collider = ball.addComponent(CircleCollider2D, 12);
+            collider.material = PhysicsMaterial2D.Bouncy;
+            
+            scene.addGameObject(ball);
+            droppedObjects.push(ball);
+            return ball;
+        }
+
+        // Create comprehensive level layout
+        function createLevel() {
+            console.log('Creating comprehensive level...');
+            
+            // Ground (wide base)
+            createPlatform(400, 570, 1000, 60, PhysicsMaterial2D.Wood, '#8b4513', 'Ground');
+            
+            // Starting platform (purple - where player spawns)
+            createPlatform(200, 470, 150, 25, PhysicsMaterial2D.Default, '#a29bfe', 'Starting');
+            
+            // Wood platform (normal physics)
+            createPlatform(350, 370, 120, 25, PhysicsMaterial2D.Wood, '#8b4513', 'Wood');
+            
+            // Ice platform (slippery)
+            createPlatform(550, 270, 120, 25, PhysicsMaterial2D.Ice, '#74b9ff', 'Ice');
+            
+            // Rubber platform (bouncy)
+            createPlatform(200, 170, 120, 25, PhysicsMaterial2D.Rubber, '#fd79a8', 'Rubber');
+            
+            // Metal platform (low friction, low bounce)
+            createPlatform(600, 70, 120, 25, PhysicsMaterial2D.Metal, '#636e72', 'Metal');
+            
+            // Super bouncy platform (extreme bounce)
+            createPlatform(400, -30, 120, 25, PhysicsMaterial2D.Bouncy, '#00b894', 'SuperBouncy');
+            
+            // Side walls (to contain physics objects)
+            createPlatform(-50, 200, 30, 800, PhysicsMaterial2D.Wood, '#8b4513', 'LeftWall');
+            createPlatform(850, 200, 30, 800, PhysicsMaterial2D.Wood, '#8b4513', 'RightWall');
+            
+            console.log('Comprehensive level created with', platforms.length, 'platforms');
+        }
+
+        // UI setup
+        function setupUI() {
+            document.getElementById('resetPlayer').onclick = () => {
+                if (player) {
+                    player.transform.position = new Vector2(200, 400);
+                    const rb = player.getComponent(Rigidbody2D);
+                    if (rb) {
+                        rb.velocity = Vector2.zero;
+                    }
+                    // Reset camera
+                    camera.setPosition(new Vector2(200, 300));
+                }
+            };
+
+            document.getElementById('addBox').onclick = () => {
+                const playerPos = player ? player.transform.position : new Vector2(400, 100);
+                createBox(playerPos.x, playerPos.y - 100);
+            };
+
+            document.getElementById('addBall').onclick = () => {
+                const playerPos = player ? player.transform.position : new Vector2(400, 100);
+                createBall(playerPos.x + 50, playerPos.y - 100);
+            };
+
+            document.getElementById('clearObjects').onclick = () => {
+                droppedObjects.forEach(obj => {
+                    try {
+                        obj.destroy();
+                    } catch (e) {
+                        console.log('Error destroying object');
+                    }
+                });
+                droppedObjects = [];
+            };
+
+            document.getElementById('toggleCameraFollow').onclick = () => {
+                cameraFollowEnabled = !cameraFollowEnabled;
+                document.getElementById('cameraFollow').textContent = cameraFollowEnabled ? 'ON' : 'OFF';
+            };
+        }
+
+        // Update UI
+        function updateUI() {
+            if (player) {
+                const pos = player.transform.position;
+                document.getElementById('playerPos').textContent = 
+                    `${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}`;
+                
+                const controller = player.getComponent(EnhancedPlayerController);
+                if (controller) {
+                    const vel = controller.getVelocity();
+                    document.getElementById('playerVel').textContent = 
+                        `${vel.x.toFixed(0)}, ${vel.y.toFixed(0)}`;
+                    
+                    document.getElementById('onGround').textContent = 
+                        controller.getIsGrounded() ? 'YES' : 'NO';
+                    
+                    document.getElementById('currentPlatform').textContent = 
+                        controller.getCurrentPlatform();
+                }
+            }
+            
+            if (camera) {
+                const camPos = camera.position;
+                document.getElementById('cameraPos').textContent = 
+                    `${camPos.x.toFixed(0)}, ${camPos.y.toFixed(0)}`;
+            }
+            
+            document.getElementById('objectCount').textContent = droppedObjects.length;
+        }
+
+        // Initialize
+        async function init() {
+            try {
+                document.getElementById('status').textContent = 'Creating level...';
+                
+                createLevel();
+                
+                document.getElementById('status').textContent = 'Creating player...';
+                player = createPlayer();
+                
+                // Set initial camera position
+                camera.setPosition(new Vector2(200, 300));
+                
+                setupUI();
+                
+                document.getElementById('status').textContent = 'Starting engine...';
+                
+                engine.setScene(scene);
+                engine.start();
+                
+                document.getElementById('status').textContent = 'Ready! Explore the material platforms!';
+                
+                // Update UI regularly
+                setInterval(updateUI, 100);
+                
+                console.log('Enhanced platformer initialized successfully');
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

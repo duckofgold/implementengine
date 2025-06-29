@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplementEngine - Working Platformer Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2c3e50;
+            border-radius: 8px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .section h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        .info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .materials-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+
+        .material-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #34495e;
+            border-radius: 4px;
+        }
+
+        .material-color {
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Working Platformer Demo</h1>
+    <p>Test physics materials with proper camera following!</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="section">
+        <h3>Controls</h3>
+        <div class="controls">
+            <button id="resetPlayer">Reset Player</button>
+            <button id="addBox">Drop Box</button>
+            <button id="toggleCameraFollow">Toggle Camera Follow</button>
+        </div>
+        <p style="color: #888; margin: 10px 0;">
+            <strong>A/D:</strong> Move | <strong>Space/W:</strong> Jump
+        </p>
+    </div>
+
+    <div class="section">
+        <h3>Material Platforms</h3>
+        <div class="materials-legend">
+            <div class="material-item">
+                <div class="material-color" style="background: #8b4513;"></div>
+                <span><strong>Wood:</strong> Normal friction and bounce</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #74b9ff;"></div>
+                <span><strong>Ice:</strong> Very slippery surface</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #fd79a8;"></div>
+                <span><strong>Rubber:</strong> Bouncy material</span>
+            </div>
+            <div class="material-item">
+                <div class="material-color" style="background: #00b894;"></div>
+                <span><strong>Super Bouncy:</strong> Extreme bounce</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info">
+        <div>Player Position: <span id="playerPos">0, 0</span></div>
+        <div>Player Velocity: <span id="playerVel">0, 0</span></div>
+        <div>Camera Follow: <span id="cameraFollow">ON</span></div>
+        <div>Status: <span id="status">Loading...</span></div>
+    </div>
+
+    <script type="module">
+        import { 
+            Engine, 
+            Scene, 
+            GameObject, 
+            Component,
+            Transform,
+            SpriteRenderer,
+            Rigidbody2D,
+            BoxCollider2D,
+            BodyType,
+            ForceMode,
+            PhysicsMaterial2D,
+            Input, 
+            Vector2, 
+            Time 
+        } from '../src/index.ts';
+
+        console.log('Starting working platformer demo...');
+
+        // Initialize engine
+        const canvas = document.getElementById('gameCanvas');
+        const engine = Engine.createInstance({
+            canvas: canvas,
+            backgroundColor: '#87CEEB',
+            targetFPS: 60
+        });
+
+        // Get renderer and camera
+        const renderer = engine.getRenderer();
+        const camera = renderer.getCamera();
+
+        // Create scene
+        const scene = new Scene('Working Platformer');
+        
+        // Game objects
+        let player = null;
+        let droppedObjects = [];
+        let cameraFollowEnabled = true;
+
+        // Helper function to create colored rectangles
+        function createRectSprite(width, height, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, width-2, height-2);
+            
+            return canvas;
+        }
+
+        // Player controller with camera following
+        class PlayerController extends Component {
+            constructor() {
+                super();
+                this.moveSpeed = 350;
+                this.jumpForce = 450;
+                this.isGrounded = false;
+            }
+
+            update() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                if (!rigidbody) return;
+
+                // Simple ground detection
+                const vel = rigidbody.velocity;
+                const pos = this.transform.position;
+                
+                if (Math.abs(vel.y) < 50 && pos.y > 400) {
+                    this.isGrounded = true;
+                } else if (vel.y > 100) {
+                    this.isGrounded = false;
+                }
+
+                // Horizontal movement
+                let moveInput = 0;
+                if (Input.getKey('a') || Input.getKey('A') || Input.getKey('ArrowLeft')) {
+                    moveInput = -1;
+                }
+                if (Input.getKey('d') || Input.getKey('D') || Input.getKey('ArrowRight')) {
+                    moveInput = 1;
+                }
+
+                // Apply movement force
+                if (moveInput !== 0) {
+                    const force = new Vector2(moveInput * this.moveSpeed, 0);
+                    rigidbody.addForce(force, ForceMode.Force);
+                }
+
+                // Apply drag
+                if (Math.abs(vel.x) > 1) {
+                    const dragForce = new Vector2(-vel.x * 8, 0);
+                    rigidbody.addForce(dragForce, ForceMode.Force);
+                }
+
+                // Jump
+                const jumpInput = Input.getKeyDown('w') || Input.getKeyDown('W') || Input.getKeyDown(' ');
+                if (jumpInput && this.isGrounded) {
+                    rigidbody.velocity = new Vector2(vel.x, -this.jumpForce);
+                    this.isGrounded = false;
+                }
+
+                // Camera following - THIS IS THE CORRECT WAY
+                if (cameraFollowEnabled && camera) {
+                    const targetPos = this.transform.position.clone();
+                    const currentCamPos = camera.position;
+                    
+                    // Smooth camera following
+                    const lerpFactor = 3 * Time.deltaTime;
+                    const newCamX = currentCamPos.x + (targetPos.x - currentCamPos.x) * lerpFactor;
+                    const newCamY = currentCamPos.y + (targetPos.y - 100 - currentCamPos.y) * lerpFactor;
+                    
+                    camera.setPosition(new Vector2(newCamX, newCamY));
+                }
+            }
+
+            getVelocity() {
+                const rigidbody = this.getComponent(Rigidbody2D);
+                return rigidbody ? rigidbody.velocity : Vector2.zero;
+            }
+
+            getIsGrounded() {
+                return this.isGrounded;
+            }
+        }
+
+        // Create player - SPAWN ON TOP OF PLATFORM
+        function createPlayer() {
+            const playerObj = new GameObject('Player');
+            // Spawn properly on top of starting platform at y=450
+            playerObj.transform.position = new Vector2(200, 420); 
+            
+            const sprite = playerObj.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(30, 40, '#3498db'));
+            
+            const rigidbody = playerObj.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.mass = 1;
+            rigidbody.drag = 1;
+            rigidbody.freezeRotation = true;
+            
+            const collider = playerObj.addComponent(BoxCollider2D, new Vector2(30, 40));
+            
+            const controller = playerObj.addComponent(PlayerController);
+            
+            scene.addGameObject(playerObj);
+            console.log('Player created at position:', playerObj.transform.position);
+            return playerObj;
+        }
+
+        // Create platform
+        function createPlatform(x, y, width, height, material, color) {
+            const platform = new GameObject('Platform');
+            platform.transform.position = new Vector2(x, y);
+            
+            const sprite = platform.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(width, height, color));
+            
+            const rigidbody = platform.addComponent(Rigidbody2D, BodyType.Static);
+            rigidbody.material = material;
+            
+            const collider = platform.addComponent(BoxCollider2D, new Vector2(width, height));
+            collider.material = material;
+            
+            scene.addGameObject(platform);
+            return platform;
+        }
+
+        // Create box
+        function createBox(x, y) {
+            const box = new GameObject('Box');
+            box.transform.position = new Vector2(x, y);
+            
+            const sprite = box.addComponent(SpriteRenderer);
+            sprite.setSprite(createRectSprite(25, 25, '#e67e22'));
+            
+            const rigidbody = box.addComponent(Rigidbody2D, BodyType.Dynamic);
+            rigidbody.mass = 1;
+            
+            const collider = box.addComponent(BoxCollider2D, new Vector2(25, 25));
+            
+            scene.addGameObject(box);
+            droppedObjects.push(box);
+            return box;
+        }
+
+        // Create level
+        function createLevel() {
+            console.log('Creating level...');
+            
+            // Ground
+            createPlatform(400, 570, 800, 60, PhysicsMaterial2D.Wood, '#8b4513');
+            
+            // Starting platform - WHERE PLAYER SPAWNS
+            createPlatform(200, 450, 150, 20, PhysicsMaterial2D.Wood, '#8b4513');
+            
+            // Ice platform (slippery)
+            createPlatform(450, 350, 120, 20, PhysicsMaterial2D.Ice, '#74b9ff');
+            
+            // Rubber platform (bouncy)
+            createPlatform(650, 250, 120, 20, PhysicsMaterial2D.Rubber, '#fd79a8');
+            
+            // Super bouncy platform
+            createPlatform(300, 150, 120, 20, PhysicsMaterial2D.Bouncy, '#00b894');
+            
+            console.log('Level created');
+        }
+
+        // UI setup
+        function setupUI() {
+            document.getElementById('resetPlayer').onclick = () => {
+                if (player) {
+                    player.transform.position = new Vector2(200, 420);
+                    const rb = player.getComponent(Rigidbody2D);
+                    if (rb) {
+                        rb.velocity = Vector2.zero;
+                    }
+                    // Reset camera
+                    camera.setPosition(new Vector2(200, 300));
+                }
+            };
+
+            document.getElementById('addBox').onclick = () => {
+                const playerPos = player ? player.transform.position : new Vector2(400, 100);
+                createBox(playerPos.x + 50, playerPos.y - 100);
+            };
+
+            document.getElementById('toggleCameraFollow').onclick = () => {
+                cameraFollowEnabled = !cameraFollowEnabled;
+                document.getElementById('cameraFollow').textContent = cameraFollowEnabled ? 'ON' : 'OFF';
+            };
+        }
+
+        // Update UI
+        function updateUI() {
+            if (player) {
+                const pos = player.transform.position;
+                document.getElementById('playerPos').textContent = 
+                    `${pos.x.toFixed(0)}, ${pos.y.toFixed(0)}`;
+                
+                const controller = player.getComponent(PlayerController);
+                if (controller) {
+                    const vel = controller.getVelocity();
+                    document.getElementById('playerVel').textContent = 
+                        `${vel.x.toFixed(0)}, ${vel.y.toFixed(0)}`;
+                }
+            }
+        }
+
+        // Initialize
+        async function init() {
+            try {
+                document.getElementById('status').textContent = 'Creating level...';
+                
+                createLevel();
+                
+                document.getElementById('status').textContent = 'Creating player...';
+                player = createPlayer();
+                
+                // Set initial camera position to follow player
+                camera.setPosition(new Vector2(200, 300));
+                
+                setupUI();
+                
+                document.getElementById('status').textContent = 'Starting engine...';
+                
+                engine.setScene(scene);
+                engine.start();
+                
+                document.getElementById('status').textContent = 'Ready! Use A/D to move, Space/W to jump';
+                
+                // Update UI regularly
+                setInterval(updateUI, 100);
+                
+                console.log('Working platformer initialized successfully');
+                console.log('Player position:', player.transform.position);
+                console.log('Camera position:', camera.position);
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
